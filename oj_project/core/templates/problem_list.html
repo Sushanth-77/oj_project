@@ -58,7 +58,7 @@
                 </thead>
                 <tbody>
                     {% for problem in problems %}
-                    <tr class="problem-row" data-url="{% url 'problem_detail' problem.short_code %}">
+                    <tr class="problem-row" data-url="{% url 'core:problem_detail' problem.short_code %}">
                         <td>{{ forloop.counter }}</td>
                         <td>
                             <a href="{% url 'core:problem_detail' problem.short_code %}"

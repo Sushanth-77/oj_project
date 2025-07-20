@@ -104,7 +104,7 @@ def problems_list(request):
         'medium_count': stats['medium'],
         'hard_count': stats['hard'],
     }
-    return render(request, 'problem_detail.html', context)  # Using the better template
+    return render(request, 'problem_list.html', context)  # Using the better template
 
 def problem_detail(request, short_code):
     """Display problem details and handle code submission"""

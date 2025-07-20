@@ -30,6 +30,11 @@ class Submission(models.Model):
 
     class Meta:
         ordering = ['-submitted']
+        indexes = [
+            models.Index(fields=['user', 'problem']),
+            models.Index(fields=['user', '-submitted']),
+            models.Index(fields=['problem', '-submitted']),
+        ]
 
     def __str__(self):
         return f'Submission by {self.user} for {self.problem.short_code} - {self.verdict}'
