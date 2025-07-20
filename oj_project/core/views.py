@@ -1,4 +1,4 @@
-# oj_project/core/views.py
+# oj_project/core/views.py - Enhanced version with better debugging
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.models import User
 from django.contrib import messages
@@ -17,6 +17,7 @@ from pathlib import Path
 from django.conf import settings
 import tempfile
 import logging
+import shutil
 
 # Set up logging
 logger = logging.getLogger(__name__)
@@ -104,7 +105,7 @@ def problems_list(request):
         'medium_count': stats['medium'],
         'hard_count': stats['hard'],
     }
-    return render(request, 'problem_list.html', context)  # Using the better template
+    return render(request, 'problem_list.html', context)
 
 def problem_detail(request, short_code):
     """Display problem details and handle code submission"""
@@ -119,7 +120,7 @@ def problem_detail(request, short_code):
         user_submissions = Submission.objects.filter(
             problem=problem, 
             user=request.user
-        ).order_by('-submitted')[:5]  # Show last 5 submissions
+        ).order_by('-submitted')[:5]
     
     context = {
         'problem': problem,
@@ -129,9 +130,11 @@ def problem_detail(request, short_code):
 
 @login_required
 def handle_submission(request, problem):
-    """Handle code submission and evaluation with better error handling"""
+    """Handle code submission and evaluation with enhanced debugging"""
     code = request.POST.get('code', '').strip()
     language = request.POST.get('language', 'py')
+    
+    print(f"DEBUG: Received submission - Language: {language}, Code length: {len(code)}")
     
     if not code:
         messages.error(request, 'Code cannot be empty')
@@ -144,6 +147,12 @@ def handle_submission(request, problem):
         return redirect('core:problem_detail', short_code=problem.short_code)
     
     try:
+        # Check system prerequisites first
+        prereq_check = check_system_prerequisites(language)
+        if not prereq_check['success']:
+            messages.error(request, f'System Error: {prereq_check["error"]}')
+            return redirect('core:problem_detail', short_code=problem.short_code)
+        
         # Create submission record
         submission = Submission.objects.create(
             problem=problem,
@@ -152,10 +161,14 @@ def handle_submission(request, problem):
             verdict='CE'  # Default to compilation error
         )
         
+        print(f"DEBUG: Created submission ID: {submission.id}")
+        
         # Test the code against test cases
         verdict = evaluate_submission(submission, language)
         submission.verdict = verdict
         submission.save()
+        
+        print(f"DEBUG: Final verdict: {verdict}")
         
         # Add message based on verdict
         verdict_messages = {
@@ -172,29 +185,79 @@ def handle_submission(request, problem):
             messages.error(request, verdict_messages[verdict])
             
     except Exception as e:
+        print(f"DEBUG: Exception in handle_submission: {str(e)}")
         logger.error(f"Submission error for user {request.user.id}: {str(e)}")
-        messages.error(request, 'An error occurred while processing your submission.')
+        messages.error(request, f'An error occurred while processing your submission: {str(e)}')
     
     return redirect('core:problem_detail', short_code=problem.short_code)
 
+def check_system_prerequisites(language):
+    """Check if required compilers/interpreters are available"""
+    try:
+        if language == 'py':
+            # Check for Python
+            result = subprocess.run(['python3', '--version'], 
+                                 capture_output=True, text=True, timeout=5)
+            if result.returncode != 0:
+                # Try python as fallback
+                result = subprocess.run(['python', '--version'], 
+                                     capture_output=True, text=True, timeout=5)
+                if result.returncode != 0:
+                    return {'success': False, 'error': 'Python interpreter not found'}
+            return {'success': True, 'version': result.stdout.strip()}
+            
+        elif language == 'cpp':
+            # Check for g++
+            result = subprocess.run(['g++', '--version'], 
+                                 capture_output=True, text=True, timeout=5)
+            if result.returncode != 0:
+                return {'success': False, 'error': 'g++ compiler not found'}
+            return {'success': True, 'version': result.stdout.split('\n')[0]}
+            
+        elif language == 'c':
+            # Check for gcc
+            result = subprocess.run(['gcc', '--version'], 
+                                 capture_output=True, text=True, timeout=5)
+            if result.returncode != 0:
+                return {'success': False, 'error': 'gcc compiler not found'}
+            return {'success': True, 'version': result.stdout.split('\n')[0]}
+            
+    except subprocess.TimeoutExpired:
+        return {'success': False, 'error': 'Compiler check timed out'}
+    except Exception as e:
+        return {'success': False, 'error': f'System check failed: {str(e)}'}
+    
+    return {'success': False, 'error': 'Unknown language'}
+
 def evaluate_submission(submission, language):
-    """Evaluate submission against test cases with improved error handling"""
+    """Evaluate submission against test cases with enhanced debugging"""
     problem = submission.problem
     test_cases = problem.testcases.all()
     
+    print(f"DEBUG: Evaluating submission for problem {problem.short_code}")
+    print(f"DEBUG: Found {test_cases.count()} test cases")
+    
     if not test_cases.exists():
-        logger.warning(f"No test cases found for problem {problem.short_code}")
+        print("DEBUG: No test cases found, accepting by default")
         return 'AC'  # No test cases, accept by default
     
     try:
-        for test_case in test_cases:
+        for i, test_case in enumerate(test_cases):
+            print(f"DEBUG: Running test case {i+1}")
+            print(f"DEBUG: Input: {repr(test_case.input[:50])}...")  # Show first 50 chars
+            print(f"DEBUG: Expected: {repr(test_case.output[:50])}...")
+            
             result = run_code(language, submission.code_text, test_case.input)
+            
+            print(f"DEBUG: Execution result: {result}")
             
             if result['status'] != 'success':
                 error_msg = result.get('error', '').lower()
-                if 'timeout' in error_msg:
+                print(f"DEBUG: Error occurred: {error_msg}")
+                
+                if 'timeout' in error_msg or 'time limit exceeded' in error_msg:
                     return 'TLE'
-                elif 'compilation' in error_msg or 'syntax' in error_msg:
+                elif any(keyword in error_msg for keyword in ['compilation', 'syntax', 'compile']):
                     return 'CE'
                 else:
                     return 'RE'
@@ -203,22 +266,35 @@ def evaluate_submission(submission, language):
             expected_output = test_case.output.strip().replace('\r\n', '\n')
             actual_output = result['output'].strip().replace('\r\n', '\n')
             
+            print(f"DEBUG: Expected output: {repr(expected_output)}")
+            print(f"DEBUG: Actual output: {repr(actual_output)}")
+            
             if expected_output != actual_output:
+                print(f"DEBUG: Output mismatch on test case {i+1}")
                 return 'WA'
         
+        print("DEBUG: All test cases passed")
         return 'AC'
         
     except Exception as e:
+        print(f"DEBUG: Exception in evaluate_submission: {str(e)}")
         logger.error(f"Evaluation error: {str(e)}")
         return 'RE'
 
 def run_code(language, code, input_data):
-    """Execute code with given input and return result - improved security and error handling"""
+    """Execute code with enhanced debugging and error handling"""
+    print(f"DEBUG: Running code in {language}")
+    print(f"DEBUG: Code preview: {code[:100]}...")  # First 100 chars
+    print(f"DEBUG: Input data: {repr(input_data)}")
+    
     try:
         # Create temporary directory for this execution
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_path = Path(temp_dir)
-            unique_id = str(uuid.uuid4())
+            unique_id = str(uuid.uuid4())[:8]  # Shorter ID for debugging
+            
+            print(f"DEBUG: Using temp directory: {temp_path}")
+            print(f"DEBUG: Unique ID: {unique_id}")
             
             # File extensions for different languages
             extensions = {
@@ -233,12 +309,21 @@ def run_code(language, code, input_data):
             code_file = temp_path / f"{unique_id}.{extensions[language]}"
             input_file = temp_path / f"{unique_id}_input.txt"
             
-            # Write code and input files
-            with open(code_file, 'w', encoding='utf-8') as f:
-                f.write(code)
+            print(f"DEBUG: Code file: {code_file}")
+            print(f"DEBUG: Input file: {input_file}")
             
-            with open(input_file, 'w', encoding='utf-8') as f:
-                f.write(input_data or '')
+            # Write code and input files
+            try:
+                with open(code_file, 'w', encoding='utf-8') as f:
+                    f.write(code)
+                print(f"DEBUG: Successfully wrote code file")
+                
+                with open(input_file, 'w', encoding='utf-8') as f:
+                    f.write(input_data or '')
+                print(f"DEBUG: Successfully wrote input file")
+            except Exception as e:
+                print(f"DEBUG: File write error: {str(e)}")
+                return {'status': 'error', 'error': f'File write error: {str(e)}'}
             
             # Execute based on language
             if language == 'py':
@@ -247,23 +332,43 @@ def run_code(language, code, input_data):
                 return run_cpp_c(code_file, input_file, language)
             
     except Exception as e:
+        print(f"DEBUG: Exception in run_code: {str(e)}")
         logger.error(f"Code execution error: {str(e)}")
         return {'status': 'error', 'error': f'Execution error: {str(e)}'}
 
 def run_python(code_file, input_file):
-    """Execute Python code with improved security"""
+    """Execute Python code with enhanced debugging"""
+    print(f"DEBUG: Executing Python file: {code_file}")
+    
     try:
+        # Try python3 first, then python
+        python_cmd = 'python3'
+        
+        # Test if python3 is available
+        test_result = subprocess.run([python_cmd, '--version'], 
+                                   capture_output=True, timeout=2)
+        if test_result.returncode != 0:
+            python_cmd = 'python'
+            print(f"DEBUG: python3 not found, trying python")
+        
+        print(f"DEBUG: Using Python command: {python_cmd}")
+        
         with open(input_file, 'r', encoding='utf-8') as input_f:
-            # Use python3 explicitly and add security restrictions
+            print(f"DEBUG: Starting Python execution...")
+            
             result = subprocess.run(
-                ['python3', '-S', str(code_file)],  # -S disables site module
+                [python_cmd, str(code_file)],
                 stdin=input_f,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 timeout=5,  # 5 second timeout
                 text=True,
-                env={'PATH': '/usr/bin:/bin'}  # Restrict PATH
+                cwd=code_file.parent  # Set working directory
             )
+        
+        print(f"DEBUG: Python execution completed. Return code: {result.returncode}")
+        print(f"DEBUG: stdout: {repr(result.stdout)}")
+        print(f"DEBUG: stderr: {repr(result.stderr)}")
         
         if result.returncode != 0:
             return {'status': 'error', 'error': f'Runtime error: {result.stderr}'}
@@ -271,23 +376,46 @@ def run_python(code_file, input_file):
         return {'status': 'success', 'output': result.stdout}
     
     except subprocess.TimeoutExpired:
+        print(f"DEBUG: Python execution timed out")
         return {'status': 'error', 'error': 'Time limit exceeded'}
+    except FileNotFoundError as e:
+        print(f"DEBUG: Python interpreter not found: {str(e)}")
+        return {'status': 'error', 'error': f'Python interpreter not found: {str(e)}'}
     except Exception as e:
+        print(f"DEBUG: Exception in run_python: {str(e)}")
         return {'status': 'error', 'error': str(e)}
 
 def run_cpp_c(code_file, input_file, language):
-    """Execute C/C++ code with improved compilation and security"""
+    """Execute C/C++ code with enhanced debugging"""
+    print(f"DEBUG: Compiling and executing {language.upper()} file: {code_file}")
+    
     try:
         compiler = 'g++' if language == 'cpp' else 'gcc'
         executable = code_file.with_suffix('')
         
-        # Improved compilation flags
+        print(f"DEBUG: Using compiler: {compiler}")
+        print(f"DEBUG: Output executable: {executable}")
+        
+        # Check if compiler exists
+        compiler_check = subprocess.run([compiler, '--version'], 
+                                      capture_output=True, timeout=2)
+        if compiler_check.returncode != 0:
+            return {'status': 'error', 'error': f'{compiler} compiler not found'}
+        
+        # Compilation flags
         compile_flags = [
             compiler, str(code_file), '-o', str(executable),
             '-Wall',  # Enable warnings
-            '-O2',    # Optimization
-            '-std=c++17' if language == 'cpp' else '-std=c11',
+            '-O1',    # Basic optimization (changed from O2 for compatibility)
         ]
+        
+        # Add language standard
+        if language == 'cpp':
+            compile_flags.append('-std=c++14')  # Changed from c++17 for better compatibility
+        else:
+            compile_flags.append('-std=c99')   # Changed from c11 for better compatibility
+        
+        print(f"DEBUG: Compile command: {' '.join(compile_flags)}")
         
         # Compile
         compile_result = subprocess.run(
@@ -295,22 +423,40 @@ def run_cpp_c(code_file, input_file, language):
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             timeout=10,
-            text=True
+            text=True,
+            cwd=code_file.parent
         )
+        
+        print(f"DEBUG: Compilation completed. Return code: {compile_result.returncode}")
+        print(f"DEBUG: Compile stdout: {repr(compile_result.stdout)}")
+        print(f"DEBUG: Compile stderr: {repr(compile_result.stderr)}")
         
         if compile_result.returncode != 0:
             return {'status': 'error', 'error': f'Compilation failed: {compile_result.stderr}'}
         
+        # Check if executable was created
+        if not executable.exists():
+            return {'status': 'error', 'error': 'Executable not created after compilation'}
+        
+        print(f"DEBUG: Executable created successfully: {executable}")
+        
         # Execute
         with open(input_file, 'r', encoding='utf-8') as input_f:
+            print(f"DEBUG: Starting execution...")
+            
             exec_result = subprocess.run(
                 [str(executable)],
                 stdin=input_f,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 timeout=5,
-                text=True
+                text=True,
+                cwd=code_file.parent
             )
+        
+        print(f"DEBUG: Execution completed. Return code: {exec_result.returncode}")
+        print(f"DEBUG: Exec stdout: {repr(exec_result.stdout)}")
+        print(f"DEBUG: Exec stderr: {repr(exec_result.stderr)}")
         
         if exec_result.returncode != 0:
             return {'status': 'error', 'error': f'Runtime error: {exec_result.stderr}'}
@@ -318,8 +464,13 @@ def run_cpp_c(code_file, input_file, language):
         return {'status': 'success', 'output': exec_result.stdout}
     
     except subprocess.TimeoutExpired:
+        print(f"DEBUG: {language.upper()} execution timed out")
         return {'status': 'error', 'error': 'Time limit exceeded'}
+    except FileNotFoundError as e:
+        print(f"DEBUG: Compiler not found: {str(e)}")
+        return {'status': 'error', 'error': f'{compiler} compiler not found: {str(e)}'}
     except Exception as e:
+        print(f"DEBUG: Exception in run_cpp_c: {str(e)}")
         return {'status': 'error', 'error': str(e)}
 
 @login_required
