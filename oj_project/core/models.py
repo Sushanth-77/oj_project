@@ -31,6 +31,6 @@ class Submission(models.Model):
     class Meta:
         ordering = ['-submitted']
 
-        def __str__(self):
-            return f'Submission by {self.user} for {self.problem.short_code} - {self.verdict}'
+    def __str__(self):
+        return f'Submission by {self.user} for {self.problem.short_code} - {self.verdict}'
     
