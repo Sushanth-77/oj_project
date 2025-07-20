@@ -9,11 +9,13 @@ from .views import (
 app_name = 'core'
 
 urlpatterns = [
-    path('', lambda request: redirect('/problems/', permanent=False)),
+    # Authentication URLs (will be available at /auth/)
     path('register/', register_user, name='register-user'),
     path('login/', login_user, name='login-user'),
     path('logout/', logout_user, name='logout-user'),
+    
+    # Main application URLs (will be available at root level)
     path('problems/', problems_list, name='problems_list'),
-    path('problem/<str:short_code>/', problem_detail, name='problem_detail'),  # Fixed path
+    path('problem/<str:short_code>/', problem_detail, name='problem_detail'),
     path('submissions/', submissions_list, name='submissions_list'),
 ]

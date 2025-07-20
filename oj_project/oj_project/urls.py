@@ -5,5 +5,8 @@ from django.shortcuts import redirect
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('auth/', include('core.urls')),
-    path('', include('core.urls')),  # Include core URLs at root level
+    # Root URL redirects to auth/register/
+    path('', lambda request: redirect('/auth/register/', permanent=False)),
+    # Include core URLs at root level for problems, submissions etc.
+    path('', include('core.urls')),
 ]
