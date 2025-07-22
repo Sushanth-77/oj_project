@@ -158,8 +158,15 @@ def handle_submission(request, problem):
     
     return redirect('core:problem_detail', short_code=problem.short_code)
 
+import subprocess
+import os
+import uuid
+from pathlib import Path
+import tempfile
+import shutil
+
 def evaluate_submission(submission, language):
-    """Evaluate submission against test cases"""
+    """Evaluate submission against test cases with better error handling"""
     problem = submission.problem
     test_cases = problem.testcases.all()
     
@@ -168,169 +175,240 @@ def evaluate_submission(submission, language):
     
     try:
         for test_case in test_cases:
+            print(f"Testing with input: {repr(test_case.input)}")
+            print(f"Expected output: {repr(test_case.output)}")
+            
             output = run_code(language, submission.code_text, test_case.input)
+            print(f"Actual output: {repr(output)}")
             
             if output is None:
+                print("Runtime error detected")
                 return 'RE'  # Runtime error
             
             # Compare output (strip whitespace and normalize line endings)
             expected_output = test_case.output.strip().replace('\r\n', '\n')
             actual_output = output.strip().replace('\r\n', '\n')
             
+            print(f"Expected (cleaned): {repr(expected_output)}")
+            print(f"Actual (cleaned): {repr(actual_output)}")
+            
             if expected_output != actual_output:
+                print("Wrong answer detected")
                 return 'WA'  # Wrong answer
         
+        print("All test cases passed")
         return 'AC'  # All test cases passed
         
-    except Exception:
+    except Exception as e:
+        print(f"Exception during evaluation: {str(e)}")
         return 'RE'  # Runtime error
 
 def run_code(language, code, input_data):
-    """Execute code using online-compiler approach with temporary directories"""
+    """Execute code with improved error handling and cleanup"""
+    unique = str(uuid.uuid4())
+    temp_dir = None
+    
     try:
-        # Create directory structure similar to online-compiler
-        project_path = Path(settings.BASE_DIR)
-        directories = ["codes", "inputs", "outputs"]
-
-        for directory in directories:
-            dir_path = project_path / directory
-            if not dir_path.exists():
-                dir_path.mkdir(parents=True, exist_ok=True)
-
-        codes_dir = project_path / "codes"
-        inputs_dir = project_path / "inputs"
-        outputs_dir = project_path / "outputs"
-
-        # Generate unique identifier
-        unique = str(uuid.uuid4())
-
+        # Create a temporary directory for this execution
+        temp_dir = tempfile.mkdtemp(prefix=f"oj_exec_{unique}_")
+        temp_path = Path(temp_dir)
+        
         # Create file paths
-        code_file_name = f"{unique}.{language}"
-        input_file_name = f"{unique}.txt"
-        output_file_name = f"{unique}.txt"
-
-        code_file_path = codes_dir / code_file_name
-        input_file_path = inputs_dir / input_file_name
-        output_file_path = outputs_dir / output_file_name
+        if language == 'py':
+            code_file_path = temp_path / f"{unique}.py"
+        elif language == 'cpp':
+            code_file_path = temp_path / f"{unique}.cpp"
+        elif language == 'c':
+            code_file_path = temp_path / f"{unique}.c"
+        
+        input_file_path = temp_path / f"{unique}_input.txt"
+        output_file_path = temp_path / f"{unique}_output.txt"
 
         # Write code to file
-        with open(code_file_path, "w") as code_file:
+        with open(code_file_path, "w", encoding='utf-8') as code_file:
             code_file.write(code)
 
         # Write input data to file
-        with open(input_file_path, "w") as input_file:
+        with open(input_file_path, "w", encoding='utf-8') as input_file:
             input_file.write(input_data or '')
-
-        # Create empty output file
-        with open(output_file_path, "w") as output_file:
-            pass
 
         # Execute based on language
         if language == "cpp":
-            return execute_cpp(code_file_path, input_file_path, output_file_path, codes_dir, unique)
+            result = execute_cpp_improved(code_file_path, input_file_path, output_file_path, temp_path, unique)
         elif language == "c":
-            return execute_c(code_file_path, input_file_path, output_file_path, codes_dir, unique)
+            result = execute_c_improved(code_file_path, input_file_path, output_file_path, temp_path, unique)
         elif language == "py":
-            return execute_python(code_file_path, input_file_path, output_file_path)
+            result = execute_python_improved(code_file_path, input_file_path, output_file_path)
+        else:
+            return None
+            
+        return result
 
     except Exception as e:
         print(f"Error in run_code: {str(e)}")
         return None
+    finally:
+        # Cleanup temporary directory
+        if temp_dir and os.path.exists(temp_dir):
+            try:
+                shutil.rmtree(temp_dir)
+            except:
+                pass  # Ignore cleanup errors
 
-def execute_cpp(code_file_path, input_file_path, output_file_path, codes_dir, unique):
-    """Execute C++ code"""
+def execute_python_improved(code_file_path, input_file_path, output_file_path):
+    """Execute Python code with better error handling"""
     try:
-        executable_path = codes_dir / unique
+        # First, try to run the code and capture any compilation errors
+        syntax_check = subprocess.run(
+            ["python3", "-m", "py_compile", str(code_file_path)],
+            capture_output=True,
+            timeout=5,
+            text=True
+        )
         
-        # Compile with g++ (fallback to clang++)
-        compile_cmd = ["g++", str(code_file_path), "-o", str(executable_path)]
-        compile_result = subprocess.run(compile_cmd, capture_output=True, timeout=10)
+        if syntax_check.returncode != 0:
+            print(f"Python syntax error: {syntax_check.stderr}")
+            return None  # Compilation error
         
-        if compile_result.returncode != 0:
-            # Try clang++ as fallback
-            compile_cmd = ["clang++", str(code_file_path), "-o", str(executable_path)]
-            compile_result = subprocess.run(compile_cmd, capture_output=True, timeout=10)
-            
-        if compile_result.returncode == 0:
-            with open(input_file_path, "r") as input_file:
-                with open(output_file_path, "w") as output_file:
-                    subprocess.run(
-                        [str(executable_path)],
-                        stdin=input_file,
-                        stdout=output_file,
-                        timeout=5
-                    )
-        else:
-            return None  # Compilation failed
+        # Now execute the code
+        with open(input_file_path, "r", encoding='utf-8') as input_file:
+            with open(output_file_path, "w", encoding='utf-8') as output_file:
+                result = subprocess.run(
+                    ["python3", str(code_file_path)],
+                    stdin=input_file,
+                    stdout=output_file,
+                    stderr=subprocess.PIPE,
+                    timeout=5,
+                    text=True
+                )
+                
+                if result.returncode != 0:
+                    print(f"Python runtime error: {result.stderr}")
+                    return None
 
         # Read output
-        with open(output_file_path, "r") as output_file:
-            return output_file.read()
+        with open(output_file_path, "r", encoding='utf-8') as output_file:
+            output = output_file.read()
+            print(f"Python execution successful, output length: {len(output)}")
+            return output
             
     except subprocess.TimeoutExpired:
-        return None  # Time limit exceeded
-    except Exception:
+        print("Python execution timed out")
         return None
-
-def execute_c(code_file_path, input_file_path, output_file_path, codes_dir, unique):
-    """Execute C code"""
-    try:
-        executable_path = codes_dir / unique
-        
-        # Compile with gcc
-        compile_cmd = ["gcc", str(code_file_path), "-o", str(executable_path)]
-        compile_result = subprocess.run(compile_cmd, capture_output=True, timeout=10)
-        
-        if compile_result.returncode == 0:
-            with open(input_file_path, "r") as input_file:
-                with open(output_file_path, "w") as output_file:
-                    subprocess.run(
-                        [str(executable_path)],
-                        stdin=input_file,
-                        stdout=output_file,
-                        timeout=5
-                    )
-        else:
-            return None  # Compilation failed
-
-        # Read output
-        with open(output_file_path, "r") as output_file:
-            return output_file.read()
-            
-    except subprocess.TimeoutExpired:
-        return None  # Time limit exceeded
-    except Exception:
-        return None
-
-def execute_python(code_file_path, input_file_path, output_file_path):
-    """Execute Python code"""
-    try:
-        with open(input_file_path, "r") as input_file:
-            with open(output_file_path, "w") as output_file:
-                # Try python3 first, then python
-                try:
-                    subprocess.run(
-                        ["python3", str(code_file_path)],
-                        stdin=input_file,
-                        stdout=output_file,
-                        timeout=5
-                    )
-                except FileNotFoundError:
-                    # Fallback to python
-                    subprocess.run(
+    except FileNotFoundError:
+        # Try with 'python' instead of 'python3'
+        try:
+            with open(input_file_path, "r", encoding='utf-8') as input_file:
+                with open(output_file_path, "w", encoding='utf-8') as output_file:
+                    result = subprocess.run(
                         ["python", str(code_file_path)],
                         stdin=input_file,
                         stdout=output_file,
-                        timeout=5
+                        stderr=subprocess.PIPE,
+                        timeout=5,
+                        text=True
                     )
+                    
+                    if result.returncode != 0:
+                        print(f"Python runtime error: {result.stderr}")
+                        return None
+
+            with open(output_file_path, "r", encoding='utf-8') as output_file:
+                return output_file.read()
+                
+        except Exception as e:
+            print(f"Python execution failed: {str(e)}")
+            return None
+    except Exception as e:
+        print(f"Python execution error: {str(e)}")
+        return None
+
+def execute_cpp_improved(code_file_path, input_file_path, output_file_path, temp_path, unique):
+    """Execute C++ code with improved error handling"""
+    try:
+        executable_path = temp_path / unique
+        
+        # Compile with g++
+        compile_result = subprocess.run(
+            ["g++", "-o", str(executable_path), str(code_file_path)],
+            capture_output=True,
+            timeout=10,
+            text=True
+        )
+        
+        if compile_result.returncode != 0:
+            print(f"C++ compilation error: {compile_result.stderr}")
+            return None  # Compilation failed
+
+        # Execute
+        with open(input_file_path, "r", encoding='utf-8') as input_file:
+            with open(output_file_path, "w", encoding='utf-8') as output_file:
+                result = subprocess.run(
+                    [str(executable_path)],
+                    stdin=input_file,
+                    stdout=output_file,
+                    stderr=subprocess.PIPE,
+                    timeout=5,
+                    text=True
+                )
+                
+                if result.returncode != 0:
+                    print(f"C++ runtime error: {result.stderr}")
+                    return None
 
         # Read output
-        with open(output_file_path, "r") as output_file:
+        with open(output_file_path, "r", encoding='utf-8') as output_file:
             return output_file.read()
             
     except subprocess.TimeoutExpired:
-        return None  # Time limit exceeded
-    except Exception:
+        print("C++ execution timed out")
+        return None
+    except Exception as e:
+        print(f"C++ execution error: {str(e)}")
+        return None
+
+def execute_c_improved(code_file_path, input_file_path, output_file_path, temp_path, unique):
+    """Execute C code with improved error handling"""
+    try:
+        executable_path = temp_path / unique
+        
+        # Compile with gcc
+        compile_result = subprocess.run(
+            ["gcc", "-o", str(executable_path), str(code_file_path)],
+            capture_output=True,
+            timeout=10,
+            text=True
+        )
+        
+        if compile_result.returncode == 0:
+            # Execute
+            with open(input_file_path, "r", encoding='utf-8') as input_file:
+                with open(output_file_path, "w", encoding='utf-8') as output_file:
+                    result = subprocess.run(
+                        [str(executable_path)],
+                        stdin=input_file,
+                        stdout=output_file,
+                        stderr=subprocess.PIPE,
+                        timeout=5,
+                        text=True
+                    )
+                    
+                    if result.returncode != 0:
+                        print(f"C runtime error: {result.stderr}")
+                        return None
+
+            # Read output
+            with open(output_file_path, "r", encoding='utf-8') as output_file:
+                return output_file.read()
+        else:
+            print(f"C compilation error: {compile_result.stderr}")
+            return None  # Compilation failed
+            
+    except subprocess.TimeoutExpired:
+        print("C execution timed out")
+        return None
+    except Exception as e:
+        print(f"C execution error: {str(e)}")
         return None
 
 @login_required
