@@ -13,12 +13,18 @@ class Problem(models.Model):
         return self.name
     
 class TestCase(models.Model):
-    problem = models.ForeignKey(Problem , on_delete=models.CASCADE,related_name='testcases')
+    problem = models.ForeignKey(Problem, on_delete=models.CASCADE, related_name='testcases')
     input = models.TextField()
     output = models.TextField()
+    is_hidden = models.BooleanField(default=False)  # Add this field
+    order = models.IntegerField(default=0)  # For ordering test cases
+
+    class Meta:
+        ordering = ['order']
 
     def __str__(self):
-        return f'Test Case for {self.problem.short_code}'
+        visibility = "Hidden" if self.is_hidden else "Visible"
+        return f'{visibility} Test Case for {self.problem.short_code}'
     
 class Submission(models.Model):
     VERDICTS = (('AC','Accepted'),('WA','Wrong Answer'),('TLE','Time Limit Exceeded'),('RE','Runtime Error'),('CE','Compilation Error'))

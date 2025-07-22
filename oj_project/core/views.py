@@ -158,50 +158,123 @@ def handle_submission(request, problem):
     
     return redirect('core:problem_detail', short_code=problem.short_code)
 
-import subprocess
-import os
-import uuid
-from pathlib import Path
-import tempfile
-import shutil
 
 def evaluate_submission(submission, language):
-    """Evaluate submission against test cases with better error handling"""
+    """
+    Two-phase evaluation: 
+    1. First evaluate visible test cases
+    2. Only if all visible pass, evaluate hidden test cases
+    """
     problem = submission.problem
-    test_cases = problem.testcases.all()
     
-    if not test_cases.exists():
-        return 'AC'  # No test cases, accept by default
+    # Get visible test cases from database
+    visible_test_cases = problem.testcases.filter(is_hidden=False) if hasattr(problem.testcases.first(), 'is_hidden') else problem.testcases.all()
     
     try:
-        for test_case in test_cases:
-            print(f"Testing with input: {repr(test_case.input)}")
-            print(f"Expected output: {repr(test_case.output)}")
+        # Phase 1: Evaluate visible test cases
+        print(f"Phase 1: Evaluating {visible_test_cases.count()} visible test cases...")
+        for i, test_case in enumerate(visible_test_cases, 1):
+            print(f"Testing visible test case {i}")
+            print(f"Input: {repr(test_case.input)}")
+            print(f"Expected: {repr(test_case.output)}")
             
             output = run_code(language, submission.code_text, test_case.input)
-            print(f"Actual output: {repr(output)}")
+            print(f"Actual: {repr(output)}")
             
             if output is None:
-                print("Runtime error detected")
-                return 'RE'  # Runtime error
+                print("Runtime error in visible test case")
+                return 'RE'
             
-            # Compare output (strip whitespace and normalize line endings)
+            # Compare output
             expected_output = test_case.output.strip().replace('\r\n', '\n')
             actual_output = output.strip().replace('\r\n', '\n')
             
-            print(f"Expected (cleaned): {repr(expected_output)}")
-            print(f"Actual (cleaned): {repr(actual_output)}")
-            
             if expected_output != actual_output:
-                print("Wrong answer detected")
-                return 'WA'  # Wrong answer
+                print(f"Wrong answer in visible test case {i}")
+                return 'WA'
         
-        print("All test cases passed")
-        return 'AC'  # All test cases passed
+        print("All visible test cases passed!")
+        
+        # Phase 2: Evaluate hidden test cases from file
+        hidden_verdict = evaluate_hidden_test_cases(submission, language)
+        if hidden_verdict != 'AC':
+            return hidden_verdict
+            
+        print("All hidden test cases passed!")
+        return 'AC'
         
     except Exception as e:
         print(f"Exception during evaluation: {str(e)}")
-        return 'RE'  # Runtime error
+        return 'RE'
+
+def evaluate_hidden_test_cases(submission, language):
+    """
+    Evaluate hidden test cases from input file
+    """
+    problem = submission.problem
+    
+    # Look for hidden test cases file
+    # You can store the path in your Problem model or use a naming convention
+    hidden_input_file = f"inputs/{problem.short_code}_hidden.txt"
+    hidden_output_file = f"outputs/{problem.short_code}_hidden.txt"
+    
+    # Alternative: use the existing file structure you have
+    # For now, let's assume you have files like: inputs/problem_code.txt and outputs/problem_code.txt
+    base_path = Path("oj_project")  # Adjust this to your project structure
+    input_path = base_path / "inputs" / f"{problem.short_code}.txt"
+    output_path = base_path / "outputs" / f"{problem.short_code}.txt"
+    
+    if not input_path.exists() or not output_path.exists():
+        print(f"No hidden test files found for {problem.short_code}")
+        return 'AC'  # No hidden tests, consider passed
+    
+    try:
+        # Read expected outputs
+        with open(output_path, 'r', encoding='utf-8') as f:
+            expected_outputs = f.read().strip().split('\n')
+        
+        # Read inputs and process them
+        with open(input_path, 'r', encoding='utf-8') as f:
+            input_lines = f.read().strip().split('\n')
+        
+        # Group input lines into test cases (assuming each line is one test case)
+        # For your add two numbers problem: each line has "a b"
+        test_case_count = len(input_lines)
+        expected_count = len([out for out in expected_outputs if out.strip()])
+        
+        print(f"Found {test_case_count} hidden test cases")
+        print(f"Expected {expected_count} outputs")
+        
+        # Run the code with all hidden inputs at once
+        all_hidden_input = '\n'.join(input_lines)
+        output = run_code(language, submission.code_text, all_hidden_input)
+        
+        if output is None:
+            print("Runtime error in hidden test cases")
+            return 'RE'
+        
+        # Split actual output by lines and clean
+        actual_outputs = [line.strip() for line in output.strip().split('\n') if line.strip()]
+        expected_clean = [line.strip() for line in expected_outputs if line.strip()]
+        
+        print(f"Expected outputs: {expected_clean}")
+        print(f"Actual outputs: {actual_outputs}")
+        
+        # Compare each output
+        if len(actual_outputs) != len(expected_clean):
+            print(f"Output count mismatch: expected {len(expected_clean)}, got {len(actual_outputs)}")
+            return 'WA'
+        
+        for i, (expected, actual) in enumerate(zip(expected_clean, actual_outputs)):
+            if expected != actual:
+                print(f"Hidden test case {i+1} failed: expected '{expected}', got '{actual}'")
+                return 'WA'
+        
+        return 'AC'
+        
+    except Exception as e:
+        print(f"Error evaluating hidden test cases: {str(e)}")
+        return 'RE'
 
 def run_code(language, code, input_data):
     """Execute code with improved error handling and cleanup"""
