@@ -96,6 +96,18 @@
             border: 1px solid #ddd;
             padding: 0.5rem;
         }
+
+        /* Custom error styling for CodeMirror */
+        .CodeMirror.error {
+            border-color: #dc3545;
+            box-shadow: 0 0 0 0.2rem rgba(220, 53, 69, 0.25);
+        }
+
+        .error-message {
+            color: #dc3545;
+            font-size: 0.875rem;
+            margin-top: 0.25rem;
+        }
     </style>
 </head>
 <body>
@@ -219,7 +231,7 @@
                             {% endfor %}
                         {% endif %}
 
-                        <form method="post">
+                        <form id="submissionForm" method="post">
                             {% csrf_token %}
                             <div class="mb-3">
                                 <label for="language" class="form-label">Language:</label>
@@ -231,7 +243,10 @@
                             </div>
                             <div class="mb-3">
                                 <label for="code" class="form-label">Your Code:</label>
-                                <textarea name="code" id="code" class="form-control" rows="20" placeholder="Write your solution here..." required></textarea>
+                                <textarea name="code" id="code" class="form-control" rows="20" placeholder="Write your solution here..."></textarea>
+                                <div id="codeError" class="error-message" style="display: none;">
+                                    Please write some code before submitting.
+                                </div>
                             </div>
                             <button type="submit" class="btn btn-modern">
                                 <i class="fas fa-paper-plane"></i> Submit Solution
@@ -341,6 +356,54 @@
                 default: mode = 'python';
             }
             editor.setOption('mode', mode);
+        });
+
+        // Custom form validation
+        document.getElementById('submissionForm').addEventListener('submit', function(e) {
+            // Get the CodeMirror editor content
+            const code = editor.getValue().trim();
+            const codeError = document.getElementById('codeError');
+            const codeMirrorElement = document.querySelector('.CodeMirror');
+
+            // Reset previous error states
+            codeError.style.display = 'none';
+            codeMirrorElement.classList.remove('error');
+
+            // Check if code is empty
+            if (!code) {
+                e.preventDefault(); // Prevent form submission
+                
+                // Show error message
+                codeError.style.display = 'block';
+                codeMirrorElement.classList.add('error');
+                
+                // Focus on the CodeMirror editor
+                editor.focus();
+                
+                // Scroll to the error
+                codeMirrorElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                
+                return false;
+            }
+
+            // Update the hidden textarea with CodeMirror content before submission
+            document.getElementById('code').value = code;
+            
+            return true;
+        });
+
+        // Also update textarea on CodeMirror change (for form validation)
+        editor.on('change', function() {
+            document.getElementById('code').value = editor.getValue();
+            
+            // Clear error state when user starts typing
+            const codeError = document.getElementById('codeError');
+            const codeMirrorElement = document.querySelector('.CodeMirror');
+            
+            if (editor.getValue().trim()) {
+                codeError.style.display = 'none';
+                codeMirrorElement.classList.remove('error');
+            }
         });
 
         function showCode(code) {

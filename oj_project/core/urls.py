@@ -8,13 +8,20 @@ from .views import (
 
 app_name = 'core'
 
+# Root redirect function
+def home_redirect(request):
+    return redirect('/auth/register/')
+
 urlpatterns = [
-    # Authentication URLs (will be available at /auth/)
-    path('register/', register_user, name='register-user'),
-    path('login/', login_user, name='login-user'),
-    path('logout/', logout_user, name='logout-user'),
+    # Root redirect
+    path('', home_redirect, name='home'),
     
-    # Main application URLs (will be available at root level)
+    # Authentication URLs with auth/ prefix
+    path('auth/register/', register_user, name='register-user'),
+    path('auth/login/', login_user, name='login-user'),
+    path('auth/logout/', logout_user, name='logout-user'),
+    
+    # Main application URLs
     path('problems/', problems_list, name='problems_list'),
     path('problem/<str:short_code>/', problem_detail, name='problem_detail'),
     path('submissions/', submissions_list, name='submissions_list'),
