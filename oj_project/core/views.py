@@ -1,4 +1,4 @@
-# oj_project/core/views.py - Simplified version using online-compiler approach
+# oj_project/core/views.py - Fixed version with runtime error issues resolved
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.models import User
 from django.contrib import messages
@@ -11,6 +11,7 @@ import os
 import uuid
 from pathlib import Path
 import tempfile
+import shutil  # THIS WAS MISSING - CRITICAL FOR CLEANUP
 
 def register_user(request):
     """User registration view"""
@@ -185,12 +186,14 @@ def evaluate_submission(submission, language):
                 print("Runtime error in visible test case")
                 return 'RE'
             
-            # Compare output
-            expected_output = test_case.output.strip().replace('\r\n', '\n')
-            actual_output = output.strip().replace('\r\n', '\n')
+            # Compare output - FIXED: More robust comparison
+            expected_output = test_case.output.strip().replace('\r\n', '\n').replace('\r', '\n')
+            actual_output = output.strip().replace('\r\n', '\n').replace('\r', '\n')
             
             if expected_output != actual_output:
                 print(f"Wrong answer in visible test case {i}")
+                print(f"Expected (repr): {repr(expected_output)}")
+                print(f"Actual (repr): {repr(actual_output)}")
                 return 'WA'
         
         print("All visible test cases passed!")
@@ -213,19 +216,20 @@ def evaluate_hidden_test_cases(submission, language):
     """
     problem = submission.problem
     
-    # Look for hidden test cases file
-    # You can store the path in your Problem model or use a naming convention
-    hidden_input_file = f"inputs/{problem.short_code}_hidden.txt"
-    hidden_output_file = f"outputs/{problem.short_code}_hidden.txt"
+    # FIXED: Better path handling
+    try:
+        # Use Django's BASE_DIR or settings to get proper paths
+        from django.conf import settings
+        base_path = Path(settings.BASE_DIR)
+    except:
+        base_path = Path(".")
     
-    # Alternative: use the existing file structure you have
-    # For now, let's assume you have files like: inputs/problem_code.txt and outputs/problem_code.txt
-    base_path = Path("oj_project")  # Adjust this to your project structure
     input_path = base_path / "inputs" / f"{problem.short_code}.txt"
     output_path = base_path / "outputs" / f"{problem.short_code}.txt"
     
     if not input_path.exists() or not output_path.exists():
         print(f"No hidden test files found for {problem.short_code}")
+        print(f"Looking for: {input_path} and {output_path}")
         return 'AC'  # No hidden tests, consider passed
     
     try:
@@ -237,9 +241,8 @@ def evaluate_hidden_test_cases(submission, language):
         with open(input_path, 'r', encoding='utf-8') as f:
             input_lines = f.read().strip().split('\n')
         
-        # Group input lines into test cases (assuming each line is one test case)
-        # For your add two numbers problem: each line has "a b"
-        test_case_count = len(input_lines)
+        # FIXED: Better handling of multiple test cases
+        test_case_count = len([line for line in input_lines if line.strip()])
         expected_count = len([out for out in expected_outputs if out.strip()])
         
         print(f"Found {test_case_count} hidden test cases")
@@ -253,7 +256,7 @@ def evaluate_hidden_test_cases(submission, language):
             print("Runtime error in hidden test cases")
             return 'RE'
         
-        # Split actual output by lines and clean
+        # FIXED: Better output comparison
         actual_outputs = [line.strip() for line in output.strip().split('\n') if line.strip()]
         expected_clean = [line.strip() for line in expected_outputs if line.strip()]
         
@@ -301,9 +304,9 @@ def run_code(language, code, input_data):
         with open(code_file_path, "w", encoding='utf-8') as code_file:
             code_file.write(code)
 
-        # Write input data to file
+        # Write input data to file - FIXED: Handle None input
         with open(input_file_path, "w", encoding='utf-8') as input_file:
-            input_file.write(input_data or '')
+            input_file.write(input_data if input_data is not None else '')
 
         # Execute based on language
         if language == "cpp":
@@ -325,15 +328,31 @@ def run_code(language, code, input_data):
         if temp_dir and os.path.exists(temp_dir):
             try:
                 shutil.rmtree(temp_dir)
-            except:
+            except Exception as cleanup_error:
+                print(f"Cleanup error: {cleanup_error}")
                 pass  # Ignore cleanup errors
 
 def execute_python_improved(code_file_path, input_file_path, output_file_path):
     """Execute Python code with better error handling"""
     try:
+        # FIXED: Better Python executable detection
+        python_cmd = None
+        for cmd in ['python3', 'python']:
+            try:
+                result = subprocess.run([cmd, '--version'], capture_output=True, timeout=5)
+                if result.returncode == 0:
+                    python_cmd = cmd
+                    break
+            except:
+                continue
+        
+        if not python_cmd:
+            print("No Python interpreter found")
+            return None
+        
         # First, try to run the code and capture any compilation errors
         syntax_check = subprocess.run(
-            ["python3", "-m", "py_compile", str(code_file_path)],
+            [python_cmd, "-m", "py_compile", str(code_file_path)],
             capture_output=True,
             timeout=5,
             text=True
@@ -347,11 +366,11 @@ def execute_python_improved(code_file_path, input_file_path, output_file_path):
         with open(input_file_path, "r", encoding='utf-8') as input_file:
             with open(output_file_path, "w", encoding='utf-8') as output_file:
                 result = subprocess.run(
-                    ["python3", str(code_file_path)],
+                    [python_cmd, str(code_file_path)],
                     stdin=input_file,
                     stdout=output_file,
                     stderr=subprocess.PIPE,
-                    timeout=5,
+                    timeout=10,  # FIXED: Increased timeout
                     text=True
                 )
                 
@@ -368,30 +387,6 @@ def execute_python_improved(code_file_path, input_file_path, output_file_path):
     except subprocess.TimeoutExpired:
         print("Python execution timed out")
         return None
-    except FileNotFoundError:
-        # Try with 'python' instead of 'python3'
-        try:
-            with open(input_file_path, "r", encoding='utf-8') as input_file:
-                with open(output_file_path, "w", encoding='utf-8') as output_file:
-                    result = subprocess.run(
-                        ["python", str(code_file_path)],
-                        stdin=input_file,
-                        stdout=output_file,
-                        stderr=subprocess.PIPE,
-                        timeout=5,
-                        text=True
-                    )
-                    
-                    if result.returncode != 0:
-                        print(f"Python runtime error: {result.stderr}")
-                        return None
-
-            with open(output_file_path, "r", encoding='utf-8') as output_file:
-                return output_file.read()
-                
-        except Exception as e:
-            print(f"Python execution failed: {str(e)}")
-            return None
     except Exception as e:
         print(f"Python execution error: {str(e)}")
         return None
@@ -401,11 +396,18 @@ def execute_cpp_improved(code_file_path, input_file_path, output_file_path, temp
     try:
         executable_path = temp_path / unique
         
+        # FIXED: Check if g++ is available
+        try:
+            subprocess.run(["g++", "--version"], capture_output=True, timeout=5)
+        except FileNotFoundError:
+            print("g++ compiler not found")
+            return None
+        
         # Compile with g++
         compile_result = subprocess.run(
-            ["g++", "-o", str(executable_path), str(code_file_path)],
+            ["g++", "-o", str(executable_path), str(code_file_path), "-std=c++17"],  # FIXED: Added C++ standard
             capture_output=True,
-            timeout=10,
+            timeout=15,  # FIXED: Increased timeout
             text=True
         )
         
@@ -421,7 +423,7 @@ def execute_cpp_improved(code_file_path, input_file_path, output_file_path, temp
                     stdin=input_file,
                     stdout=output_file,
                     stderr=subprocess.PIPE,
-                    timeout=5,
+                    timeout=10,  # FIXED: Increased timeout
                     text=True
                 )
                 
@@ -445,11 +447,18 @@ def execute_c_improved(code_file_path, input_file_path, output_file_path, temp_p
     try:
         executable_path = temp_path / unique
         
+        # FIXED: Check if gcc is available
+        try:
+            subprocess.run(["gcc", "--version"], capture_output=True, timeout=5)
+        except FileNotFoundError:
+            print("gcc compiler not found")
+            return None
+        
         # Compile with gcc
         compile_result = subprocess.run(
-            ["gcc", "-o", str(executable_path), str(code_file_path)],
+            ["gcc", "-o", str(executable_path), str(code_file_path), "-std=c99"],  # FIXED: Added C standard
             capture_output=True,
-            timeout=10,
+            timeout=15,  # FIXED: Increased timeout
             text=True
         )
         
@@ -462,7 +471,7 @@ def execute_c_improved(code_file_path, input_file_path, output_file_path, temp_p
                         stdin=input_file,
                         stdout=output_file,
                         stderr=subprocess.PIPE,
-                        timeout=5,
+                        timeout=10,  # FIXED: Increased timeout
                         text=True
                     )
                     
