@@ -1,4 +1,4 @@
-# oj_project/core/views.py - Fixed version with runtime error issues resolved
+# oj_project/core/views.py - Updated with multiple test cases support
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.models import User
 from django.contrib import messages
@@ -11,7 +11,7 @@ import os
 import uuid
 from pathlib import Path
 import tempfile
-import shutil  # THIS WAS MISSING - CRITICAL FOR CLEANUP
+import shutil
 
 def register_user(request):
     """User registration view"""
@@ -162,60 +162,44 @@ def handle_submission(request, problem):
 
 def evaluate_submission(submission, language):
     """
-    Two-phase evaluation with enhanced debugging for output comparison
+    Evaluate submission against both database test cases and file-based test cases
     """
     problem = submission.problem
     
-    # Get visible test cases from database
-    visible_test_cases = problem.testcases.filter(is_hidden=False) if hasattr(problem.testcases.first(), 'is_hidden') else problem.testcases.all()
-    
     try:
-        # Phase 1: Evaluate visible test cases
-        print(f"Phase 1: Evaluating {visible_test_cases.count()} visible test cases...")
-        for i, test_case in enumerate(visible_test_cases, 1):
-            print(f"\n=== Testing visible test case {i} ===")
-            print(f"Input: {repr(test_case.input)}")
-            print(f"Expected: {repr(test_case.output)}")
-            
-            output = run_code(language, submission.code_text, test_case.input)
-            print(f"Raw output: {repr(output)}")
-            
-            if output is None:
-                print("Runtime error in visible test case")
-                return 'RE'
-            
-            # Enhanced output comparison with detailed debugging
-            expected_output = test_case.output.strip().replace('\r\n', '\n').replace('\r', '\n')
-            actual_output = output.strip().replace('\r\n', '\n').replace('\r', '\n')
-            
-            print(f"Expected (cleaned): {repr(expected_output)}")
-            print(f"Actual (cleaned): {repr(actual_output)}")
-            print(f"Expected length: {len(expected_output)}")
-            print(f"Actual length: {len(actual_output)}")
-            
-            # Character-by-character comparison for debugging
-            if expected_output != actual_output:
-                print(f"\n!!! MISMATCH in visible test case {i} !!!")
-                print("Character-by-character comparison:")
-                max_len = max(len(expected_output), len(actual_output))
-                for j in range(max_len):
-                    exp_char = expected_output[j] if j < len(expected_output) else '<END>'
-                    act_char = actual_output[j] if j < len(actual_output) else '<END>'
-                    if exp_char != act_char:
-                        print(f"  Position {j}: Expected {repr(exp_char)}, Got {repr(act_char)}")
-                        break
-                return 'WA'
-            else:
-                print(f"✓ Test case {i} PASSED")
+        # Phase 1: Evaluate visible test cases from database (if any)
+        visible_test_cases = problem.testcases.filter(is_hidden=False) if hasattr(problem.testcases.first(), 'is_hidden') else problem.testcases.all()
         
-        print("\n✓ All visible test cases passed!")
+        if visible_test_cases.exists():
+            print(f"Phase 1: Evaluating {visible_test_cases.count()} visible test cases from database...")
+            for i, test_case in enumerate(visible_test_cases, 1):
+                print(f"\n=== Testing visible test case {i} ===")
+                print(f"Input: {repr(test_case.input)}")
+                print(f"Expected: {repr(test_case.output)}")
+                
+                output = run_code(language, submission.code_text, test_case.input)
+                print(f"Raw output: {repr(output)}")
+                
+                if output is None:
+                    print("Runtime error in visible test case")
+                    return 'RE'
+                
+                # Enhanced output comparison
+                expected_output = test_case.output.strip().replace('\r\n', '\n').replace('\r', '\n')
+                actual_output = output.strip().replace('\r\n', '\n').replace('\r', '\n')
+                
+                if expected_output != actual_output:
+                    print(f"\n!!! MISMATCH in visible test case {i} !!!")
+                    return 'WA'
+                else:
+                    print(f"✓ Test case {i} PASSED")
         
-        # Phase 2: Evaluate hidden test cases from file
-        hidden_verdict = evaluate_hidden_test_cases(submission, language)
-        if hidden_verdict != 'AC':
-            return hidden_verdict
+        # Phase 2: Evaluate file-based test cases
+        file_verdict = evaluate_file_based_test_cases(submission, language)
+        if file_verdict != 'AC':
+            return file_verdict
             
-        print("✓ All hidden test cases passed!")
+        print("✓ All test cases passed!")
         return 'AC'
         
     except Exception as e:
@@ -224,9 +208,9 @@ def evaluate_submission(submission, language):
         traceback.print_exc()
         return 'RE'
 
-def evaluate_hidden_test_cases(submission, language):
+def evaluate_file_based_test_cases(submission, language):
     """
-    Evaluate hidden test cases from input file with enhanced debugging
+    Evaluate test cases from input/output files with support for multiple test cases
     """
     problem = submission.problem
     
@@ -240,66 +224,73 @@ def evaluate_hidden_test_cases(submission, language):
     output_path = base_path / "outputs" / f"{problem.short_code}.txt"
     
     if not input_path.exists() or not output_path.exists():
-        print(f"No hidden test files found for {problem.short_code}")
+        print(f"No test files found for {problem.short_code}")
         print(f"Looking for: {input_path} and {output_path}")
-        return 'AC'  # No hidden tests, consider passed
+        return 'AC'  # No file tests, consider passed
     
     try:
-        # Read expected outputs
-        with open(output_path, 'r', encoding='utf-8') as f:
-            expected_outputs_raw = f.read()
-            print(f"Raw expected outputs file content: {repr(expected_outputs_raw)}")
-            expected_outputs = expected_outputs_raw.strip().split('\n')
-        
-        # Read inputs
+        # Read all inputs and outputs
         with open(input_path, 'r', encoding='utf-8') as f:
-            input_content = f.read()
-            print(f"Raw input file content: {repr(input_content)}")
-            input_lines = input_content.strip().split('\n')
+            input_content = f.read().strip()
+        
+        with open(output_path, 'r', encoding='utf-8') as f:
+            output_content = f.read().strip()
+        
+        print(f"Input file content: {repr(input_content)}")
+        print(f"Output file content: {repr(output_content)}")
+        
+        # Parse test cases - each line in input corresponds to one test case
+        input_lines = input_content.split('\n')
+        expected_output_lines = output_content.split('\n')
         
         print(f"Found {len(input_lines)} input lines")
-        print(f"Found {len(expected_outputs)} expected output lines")
+        print(f"Found {len(expected_output_lines)} expected output lines")
         
-        # Run the code with all hidden inputs at once
-        all_hidden_input = '\n'.join(input_lines)
-        print(f"Sending to code: {repr(all_hidden_input)}")
-        
-        output = run_code(language, submission.code_text, all_hidden_input)
-        
-        if output is None:
-            print("Runtime error in hidden test cases")
+        if len(input_lines) != len(expected_output_lines):
+            print(f"ERROR: Mismatch in number of test cases!")
+            print(f"Input lines: {len(input_lines)}, Output lines: {len(expected_output_lines)}")
             return 'RE'
         
-        print(f"Raw output from code: {repr(output)}")
-        
-        # Process outputs
-        actual_outputs = [line.strip() for line in output.strip().split('\n') if line.strip()]
-        expected_clean = [line.strip() for line in expected_outputs if line.strip()]
-        
-        print(f"Expected outputs (cleaned): {expected_clean}")
-        print(f"Actual outputs (cleaned): {actual_outputs}")
-        
-        # Compare counts
-        if len(actual_outputs) != len(expected_clean):
-            print(f"!!! OUTPUT COUNT MISMATCH !!!")
-            print(f"Expected {len(expected_clean)} outputs, got {len(actual_outputs)}")
-            return 'WA'
-        
-        # Compare each output
-        for i, (expected, actual) in enumerate(zip(expected_clean, actual_outputs)):
-            print(f"\nHidden test case {i+1}:")
-            print(f"  Expected: {repr(expected)}")
-            print(f"  Actual: {repr(actual)}")
-            if expected != actual:
-                print(f"  !!! MISMATCH in hidden test case {i+1} !!!")
+        # Test each case individually
+        for i, (test_input, expected_output) in enumerate(zip(input_lines, expected_output_lines)):
+            print(f"\n=== Testing file-based test case {i+1} ===")
+            print(f"Input: {repr(test_input.strip())}")
+            print(f"Expected: {repr(expected_output.strip())}")
+            
+            # Run code with this specific input
+            actual_output = run_code(language, submission.code_text, test_input.strip())
+            
+            if actual_output is None:
+                print(f"Runtime error in test case {i+1}")
+                return 'RE'
+            
+            # Clean and compare outputs
+            expected_clean = expected_output.strip()
+            actual_clean = actual_output.strip()
+            
+            print(f"Actual: {repr(actual_clean)}")
+            
+            if expected_clean != actual_clean:
+                print(f"!!! MISMATCH in test case {i+1} !!!")
+                print(f"Expected: '{expected_clean}' (len: {len(expected_clean)})")
+                print(f"Actual: '{actual_clean}' (len: {len(actual_clean)})")
+                
+                # Character-by-character comparison for debugging
+                max_len = max(len(expected_clean), len(actual_clean))
+                for j in range(max_len):
+                    exp_char = expected_clean[j] if j < len(expected_clean) else '<END>'
+                    act_char = actual_clean[j] if j < len(actual_clean) else '<END>'
+                    if exp_char != act_char:
+                        print(f"  First difference at position {j}: Expected {repr(exp_char)}, Got {repr(act_char)}")
+                        break
                 return 'WA'
             else:
-                print(f"  ✓ MATCH")
+                print(f"✓ Test case {i+1} PASSED")
         
         return 'AC'
         
     except Exception as e:
-        print(f"Error evaluating hidden test cases: {str(e)}")
+        print(f"Error evaluating file-based test cases: {str(e)}")
         import traceback
         traceback.print_exc()
         return 'RE'
@@ -329,7 +320,7 @@ def run_code(language, code, input_data):
         with open(code_file_path, "w", encoding='utf-8') as code_file:
             code_file.write(code)
 
-        # Write input data to file - FIXED: Handle None input
+        # Write input data to file
         with open(input_file_path, "w", encoding='utf-8') as input_file:
             input_file.write(input_data if input_data is not None else '')
 
@@ -355,12 +346,11 @@ def run_code(language, code, input_data):
                 shutil.rmtree(temp_dir)
             except Exception as cleanup_error:
                 print(f"Cleanup error: {cleanup_error}")
-                pass  # Ignore cleanup errors
+                pass
 
 def execute_python_improved(code_file_path, input_file_path, output_file_path):
     """Execute Python code with better error handling"""
     try:
-        # FIXED: Better Python executable detection
         python_cmd = None
         for cmd in ['python3', 'python']:
             try:
@@ -377,10 +367,6 @@ def execute_python_improved(code_file_path, input_file_path, output_file_path):
         
         print(f"Using Python command: {python_cmd}")
         
-        # REMOVED: The syntax check step that might be causing issues
-        # The py_compile module might not work as expected in all environments
-        
-        # Execute the code directly
         try:
             with open(input_file_path, "r", encoding='utf-8') as input_file:
                 with open(output_file_path, "w", encoding='utf-8') as output_file:
@@ -391,7 +377,7 @@ def execute_python_improved(code_file_path, input_file_path, output_file_path):
                         stderr=subprocess.PIPE,
                         timeout=10,
                         text=True,
-                        cwd=str(code_file_path.parent)  # ADDED: Set working directory
+                        cwd=str(code_file_path.parent)
                     )
                     
                     print(f"Python process return code: {result.returncode}")
@@ -415,7 +401,7 @@ def execute_python_improved(code_file_path, input_file_path, output_file_path):
     except Exception as e:
         print(f"Python execution error: {str(e)}")
         import traceback
-        traceback.print_exc()  # ADDED: Print full traceback for debugging
+        traceback.print_exc()
         return None
 
 def execute_cpp_improved(code_file_path, input_file_path, output_file_path, temp_path, unique):
@@ -423,7 +409,6 @@ def execute_cpp_improved(code_file_path, input_file_path, output_file_path, temp
     try:
         executable_path = temp_path / unique
         
-        # FIXED: Check if g++ is available
         try:
             subprocess.run(["g++", "--version"], capture_output=True, timeout=5)
         except FileNotFoundError:
@@ -432,15 +417,15 @@ def execute_cpp_improved(code_file_path, input_file_path, output_file_path, temp
         
         # Compile with g++
         compile_result = subprocess.run(
-            ["g++", "-o", str(executable_path), str(code_file_path), "-std=c++17"],  # FIXED: Added C++ standard
+            ["g++", "-o", str(executable_path), str(code_file_path), "-std=c++17"],
             capture_output=True,
-            timeout=15,  # FIXED: Increased timeout
+            timeout=15,
             text=True
         )
         
         if compile_result.returncode != 0:
             print(f"C++ compilation error: {compile_result.stderr}")
-            return None  # Compilation failed
+            return None
 
         # Execute
         with open(input_file_path, "r", encoding='utf-8') as input_file:
@@ -450,7 +435,7 @@ def execute_cpp_improved(code_file_path, input_file_path, output_file_path, temp
                     stdin=input_file,
                     stdout=output_file,
                     stderr=subprocess.PIPE,
-                    timeout=10,  # FIXED: Increased timeout
+                    timeout=10,
                     text=True
                 )
                 
@@ -474,7 +459,6 @@ def execute_c_improved(code_file_path, input_file_path, output_file_path, temp_p
     try:
         executable_path = temp_path / unique
         
-        # FIXED: Check if gcc is available
         try:
             subprocess.run(["gcc", "--version"], capture_output=True, timeout=5)
         except FileNotFoundError:
@@ -483,9 +467,9 @@ def execute_c_improved(code_file_path, input_file_path, output_file_path, temp_p
         
         # Compile with gcc
         compile_result = subprocess.run(
-            ["gcc", "-o", str(executable_path), str(code_file_path), "-std=c99"],  # FIXED: Added C standard
+            ["gcc", "-o", str(executable_path), str(code_file_path), "-std=c99"],
             capture_output=True,
-            timeout=15,  # FIXED: Increased timeout
+            timeout=15,
             text=True
         )
         
@@ -498,7 +482,7 @@ def execute_c_improved(code_file_path, input_file_path, output_file_path, temp_p
                         stdin=input_file,
                         stdout=output_file,
                         stderr=subprocess.PIPE,
-                        timeout=10,  # FIXED: Increased timeout
+                        timeout=10,
                         text=True
                     )
                     
@@ -511,7 +495,7 @@ def execute_c_improved(code_file_path, input_file_path, output_file_path, temp_p
                 return output_file.read()
         else:
             print(f"C compilation error: {compile_result.stderr}")
-            return None  # Compilation failed
+            return None
             
     except subprocess.TimeoutExpired:
         print("C execution timed out")
@@ -533,7 +517,7 @@ def submissions_list(request):
         user_submissions = user_submissions.filter(verdict=verdict_filter)
     
     context = {
-        'submissions': user_submissions[:50],  # Limit to 50 recent submissions
+        'submissions': user_submissions[:50],
         'verdict_filter': verdict_filter,
     }
     return render(request, 'submissions.html', context)
