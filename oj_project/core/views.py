@@ -1,4 +1,4 @@
-# oj_project/core/views.py - Updated with multiple test cases support
+# oj_project/core/views.py - Updated with multi-line test cases support
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.models import User
 from django.contrib import messages
@@ -208,9 +208,129 @@ def evaluate_submission(submission, language):
         traceback.print_exc()
         return 'RE'
 
+def parse_test_cases_from_files(input_content, output_content, problem=None):
+    """
+    Parse test cases from input and output files.
+    Supports multiple formats:
+    1. Single-line test cases (each line is one test case)
+    2. Multi-line test cases separated by empty lines
+    3. Multi-line test cases with specific separators
+    4. Fixed number of lines per test case (if problem config available)
+    """
+    
+    # Method 1: Try to detect if we have multi-line test cases separated by empty lines
+    input_sections = input_content.strip().split('\n\n')
+    output_sections = output_content.strip().split('\n\n')
+    
+    print(f"Detected {len(input_sections)} input sections and {len(output_sections)} output sections")
+    
+    # Check if problem has specific parsing configuration
+    if problem and hasattr(problem, 'test_case_format'):
+        format_type = getattr(problem, 'test_case_format', 'auto')
+        lines_per_case = getattr(problem, 'lines_per_test_case', None)
+        
+        if format_type == 'fixed_lines' and lines_per_case:
+            print(f"Using fixed lines format: {lines_per_case} lines per test case")
+            return parse_fixed_lines_format(input_content, output_content, lines_per_case)
+    
+    # If we have multiple sections separated by empty lines, use them
+    if len(input_sections) > 1 and len(input_sections) == len(output_sections):
+        print("Using multi-line test cases separated by empty lines")
+        test_cases = []
+        for i, (inp_section, out_section) in enumerate(zip(input_sections, output_sections)):
+            test_cases.append({
+                'input': inp_section.strip(),
+                'output': out_section.strip(),
+                'case_number': i + 1
+            })
+        return test_cases
+    
+    # Method 2: Check if input/output have same number of lines (single-line test cases)
+    input_lines = input_content.strip().split('\n')
+    output_lines = output_content.strip().split('\n')
+    
+    if len(input_lines) == len(output_lines) and len(input_lines) > 1:
+        print("Using single-line test cases (each line is one test case)")
+        test_cases = []
+        for i, (inp_line, out_line) in enumerate(zip(input_lines, output_lines)):
+            test_cases.append({
+                'input': inp_line.strip(),
+                'output': out_line.strip(),
+                'case_number': i + 1
+            })
+        return test_cases
+    
+    # Method 3: Try to detect pattern-based separation
+    # Look for common patterns like "Case 1:", "Test 1:", etc.
+    import re
+    case_pattern = re.compile(r'^(Case|Test|Input)\s*\d+', re.MULTILINE | re.IGNORECASE)
+    
+    input_matches = list(case_pattern.finditer(input_content))
+    output_matches = list(case_pattern.finditer(output_content))
+    
+    if len(input_matches) > 1 and len(input_matches) == len(output_matches):
+        print("Using pattern-based test case separation")
+        test_cases = []
+        
+        for i in range(len(input_matches)):
+            # Extract input for this test case
+            start_pos = input_matches[i].end()
+            end_pos = input_matches[i + 1].start() if i + 1 < len(input_matches) else len(input_content)
+            inp_text = input_content[start_pos:end_pos].strip()
+            
+            # Extract output for this test case
+            start_pos = output_matches[i].end()
+            end_pos = output_matches[i + 1].start() if i + 1 < len(output_matches) else len(output_content)
+            out_text = output_content[start_pos:end_pos].strip()
+            
+            test_cases.append({
+                'input': inp_text,
+                'output': out_text,
+                'case_number': i + 1
+            })
+        return test_cases
+    
+    # Method 4: Fallback - treat entire content as single test case
+    print("Using entire content as single test case")
+    return [{
+        'input': input_content.strip(),
+        'output': output_content.strip(),
+        'case_number': 1
+    }]
+
+def parse_fixed_lines_format(input_content, output_content, lines_per_case):
+    """
+    Parse test cases when each test case has a fixed number of lines
+    """
+    input_lines = input_content.strip().split('\n')
+    output_lines = output_content.strip().split('\n')
+    
+    test_cases = []
+    case_num = 1
+    
+    # Parse input
+    for i in range(0, len(input_lines), lines_per_case):
+        if i + lines_per_case <= len(input_lines):
+            input_case = '\n'.join(input_lines[i:i + lines_per_case])
+            
+            # Find corresponding output (assuming same structure)
+            output_start = (case_num - 1) * lines_per_case
+            if output_start < len(output_lines):
+                # Try to determine output lines dynamically or use same count
+                output_case = output_lines[output_start] if output_start < len(output_lines) else ""
+                
+                test_cases.append({
+                    'input': input_case,
+                    'output': output_case,
+                    'case_number': case_num
+                })
+                case_num += 1
+    
+    return test_cases
+
 def evaluate_file_based_test_cases(submission, language):
     """
-    Evaluate test cases from input/output files with support for multiple test cases
+    Evaluate test cases from input/output files with support for multi-line test cases
     """
     problem = submission.problem
     
@@ -231,37 +351,34 @@ def evaluate_file_based_test_cases(submission, language):
     try:
         # Read all inputs and outputs
         with open(input_path, 'r', encoding='utf-8') as f:
-            input_content = f.read().strip()
+            input_content = f.read()
         
         with open(output_path, 'r', encoding='utf-8') as f:
-            output_content = f.read().strip()
+            output_content = f.read()
         
         print(f"Input file content: {repr(input_content)}")
         print(f"Output file content: {repr(output_content)}")
         
-        # Parse test cases - each line in input corresponds to one test case
-        input_lines = input_content.split('\n')
-        expected_output_lines = output_content.split('\n')
+        # Parse test cases using the new method
+        test_cases = parse_test_cases_from_files(input_content, output_content, problem)
         
-        print(f"Found {len(input_lines)} input lines")
-        print(f"Found {len(expected_output_lines)} expected output lines")
-        
-        if len(input_lines) != len(expected_output_lines):
-            print(f"ERROR: Mismatch in number of test cases!")
-            print(f"Input lines: {len(input_lines)}, Output lines: {len(expected_output_lines)}")
-            return 'RE'
+        print(f"Parsed {len(test_cases)} test cases")
         
         # Test each case individually
-        for i, (test_input, expected_output) in enumerate(zip(input_lines, expected_output_lines)):
-            print(f"\n=== Testing file-based test case {i+1} ===")
-            print(f"Input: {repr(test_input.strip())}")
-            print(f"Expected: {repr(expected_output.strip())}")
+        for test_case in test_cases:
+            case_num = test_case['case_number']
+            test_input = test_case['input']
+            expected_output = test_case['output']
+            
+            print(f"\n=== Testing file-based test case {case_num} ===")
+            print(f"Input: {repr(test_input)}")
+            print(f"Expected: {repr(expected_output)}")
             
             # Run code with this specific input
-            actual_output = run_code(language, submission.code_text, test_input.strip())
+            actual_output = run_code(language, submission.code_text, test_input)
             
             if actual_output is None:
-                print(f"Runtime error in test case {i+1}")
+                print(f"Runtime error in test case {case_num}")
                 return 'RE'
             
             # Clean and compare outputs
@@ -271,7 +388,7 @@ def evaluate_file_based_test_cases(submission, language):
             print(f"Actual: {repr(actual_clean)}")
             
             if expected_clean != actual_clean:
-                print(f"!!! MISMATCH in test case {i+1} !!!")
+                print(f"!!! MISMATCH in test case {case_num} !!!")
                 print(f"Expected: '{expected_clean}' (len: {len(expected_clean)})")
                 print(f"Actual: '{actual_clean}' (len: {len(actual_clean)})")
                 
@@ -285,7 +402,7 @@ def evaluate_file_based_test_cases(submission, language):
                         break
                 return 'WA'
             else:
-                print(f"✓ Test case {i+1} PASSED")
+                print(f"✓ Test case {case_num} PASSED")
         
         return 'AC'
         
