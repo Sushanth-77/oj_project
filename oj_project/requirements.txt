@@ -1,1 +1,4 @@
-Django
+Django>=4.2,<5.0
+gunicorn>=20.1.0
+psycopg2-binary>=2.9.0  # If you plan to use PostgreSQL
+whitenoise>=6.0.0       # For serving static files
