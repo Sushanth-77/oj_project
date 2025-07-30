@@ -97,7 +97,6 @@
             padding: 0.5rem;
         }
 
-        /* Custom error styling for CodeMirror */
         .CodeMirror.error {
             border-color: #dc3545;
             box-shadow: 0 0 0 0.2rem rgba(220, 53, 69, 0.25);
@@ -108,6 +107,40 @@
             font-size: 0.875rem;
             margin-top: 0.25rem;
         }
+
+        .markdown-content {
+            line-height: 1.6;
+            font-size: 14px;
+        }
+        
+        .markdown-content h1, .markdown-content h2, .markdown-content h3 {
+            color: #333;
+            margin-top: 1.5rem;
+            margin-bottom: 0.5rem;
+        }
+        
+        .markdown-content code {
+            background-color: #f8f9fa;
+            padding: 0.2rem 0.4rem;
+            border-radius: 3px;
+            font-family: 'Courier New', monospace;
+        }
+        
+        .markdown-content pre {
+            background-color: #f8f9fa;
+            padding: 1rem;
+            border-radius: 5px;
+            border-left: 4px solid #007bff;
+            overflow-x: auto;
+        }
+        
+        .markdown-content ul, .markdown-content ol {
+            padding-left: 1.5rem;
+        }
+        
+        .markdown-content li {
+            margin-bottom: 0.5rem;
+        }
     </style>
 </head>
 <body>
@@ -117,7 +150,10 @@
             <a class="navbar-brand" href="{% url 'core:problems_list' %}">
                 <i class="fas fa-code"></i> CodeJudge
             </a>
-            <div class="collapse navbar-collapse">
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
                 <ul class="navbar-nav me-auto">
                     <li class="nav-item">
                         <a class="nav-link" href="{% url 'core:problems_list' %}">
@@ -252,6 +288,13 @@
                                 <i class="fas fa-paper-plane"></i> Submit Solution
                             </button>
                         </form>
+
+                        <div id="aiReviewSection" style="display: none;" class="mt-3">
+                            <button type="button" id="aiReviewBtn" class="btn btn-outline-info">
+                                <i class="fas fa-robot"></i> Get AI Code Review
+                            </button>
+                            <small class="text-muted d-block mt-1">Get optimization suggestions and code analysis</small>
+                        </div>
                     </div>
                 </div>
                 {% else %}
@@ -329,87 +372,328 @@
         </div>
     </div>
 
+    <!-- AI Review Modal -->
+    <div class="modal fade" id="aiReviewModal" tabindex="-1">
+        <div class="modal-dialog modal-xl">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">
+                        <i class="fas fa-robot text-info"></i> AI Code Review
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="aiReviewLoading" class="text-center py-4">
+                        <div class="spinner-border text-info" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                        <p class="mt-2">Analyzing your code...</p>
+                    </div>
+                    <div id="aiReviewContent" style="display: none;">
+                        <div id="aiReviewText" class="markdown-content"></div>
+                    </div>
+                    <div id="aiReviewError" style="display: none;" class="alert alert-danger">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        <span id="aiReviewErrorText"></span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/codemirror.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/mode/python/python.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/mode/clike/clike.min.js"></script>
+    
+    <!-- User Submissions Data for JavaScript -->
+    {% if user.is_authenticated and user_submissions %}
+    <script id="user-submissions-data" type="application/json">
+    [{% for submission in user_submissions %}
+      {
+        "id": {{ submission.id }},
+        "verdict": "{{ submission.verdict }}",
+        "submitted": "{{ submission.submitted|date:'c' }}"
+      }{% if not forloop.last %},{% endif %}
+    {% endfor %}]
+    </script>
+    {% endif %}
     <script>
-        // Initialize CodeMirror
-        let editor = CodeMirror.fromTextArea(document.getElementById('code'), {
-            lineNumbers: true,
-            theme: 'monokai',
-            mode: 'python',
-            indentUnit: 4,
-            lineWrapping: true,
-            matchBrackets: true,
-            autoCloseBrackets: true
+        // Global variables
+        let editor;
+        
+        // Wait for DOM to be fully loaded
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeCodeMirror();
+            setupFormValidation();
+            setupAIReview();
+            showAIReviewIfNeeded();
         });
 
-        // Change language mode
-        document.getElementById('language').addEventListener('change', function() {
-            const language = this.value;
+        function initializeCodeMirror() {
+            const codeTextarea = document.getElementById('code');
+            if (!codeTextarea) return;
+
+            editor = CodeMirror.fromTextArea(codeTextarea, {
+                lineNumbers: true,
+                theme: 'monokai',
+                mode: 'python',
+                indentUnit: 4,
+                lineWrapping: true,
+                matchBrackets: true,
+                autoCloseBrackets: true
+            });
+
+            // Setup language change handler
+            const languageSelect = document.getElementById('language');
+            if (languageSelect) {
+                languageSelect.addEventListener('change', handleLanguageChange);
+            }
+
+            // Setup editor change handler
+            editor.on('change', handleEditorChange);
+        }
+
+        function handleLanguageChange() {
+            const language = document.getElementById('language').value;
             let mode;
             switch(language) {
-                case 'py': mode = 'python'; break;
-                case 'cpp': mode = 'text/x-c++src'; break;
-                case 'c': mode = 'text/x-csrc'; break;
-                default: mode = 'python';
+                case 'py': 
+                    mode = 'python'; 
+                    break;
+                case 'cpp': 
+                    mode = 'text/x-c++src'; 
+                    break;
+                case 'c': 
+                    mode = 'text/x-csrc'; 
+                    break;
+                default: 
+                    mode = 'python';
             }
-            editor.setOption('mode', mode);
-        });
-
-        // Custom form validation
-        document.getElementById('submissionForm').addEventListener('submit', function(e) {
-            // Get the CodeMirror editor content
-            const code = editor.getValue().trim();
-            const codeError = document.getElementById('codeError');
-            const codeMirrorElement = document.querySelector('.CodeMirror');
-
-            // Reset previous error states
-            codeError.style.display = 'none';
-            codeMirrorElement.classList.remove('error');
-
-            // Check if code is empty
-            if (!code) {
-                e.preventDefault(); // Prevent form submission
-                
-                // Show error message
-                codeError.style.display = 'block';
-                codeMirrorElement.classList.add('error');
-                
-                // Focus on the CodeMirror editor
-                editor.focus();
-                
-                // Scroll to the error
-                codeMirrorElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                
-                return false;
+            if (editor) {
+                editor.setOption('mode', mode);
             }
+        }
 
-            // Update the hidden textarea with CodeMirror content before submission
-            document.getElementById('code').value = code;
+        function handleEditorChange() {
+            if (!editor) return;
             
-            return true;
-        });
-
-        // Also update textarea on CodeMirror change (for form validation)
-        editor.on('change', function() {
-            document.getElementById('code').value = editor.getValue();
+            const codeTextarea = document.getElementById('code');
+            if (codeTextarea) {
+                codeTextarea.value = editor.getValue();
+            }
             
             // Clear error state when user starts typing
             const codeError = document.getElementById('codeError');
             const codeMirrorElement = document.querySelector('.CodeMirror');
             
             if (editor.getValue().trim()) {
-                codeError.style.display = 'none';
-                codeMirrorElement.classList.remove('error');
+                if (codeError) codeError.style.display = 'none';
+                if (codeMirrorElement) codeMirrorElement.classList.remove('error');
             }
-        });
+        }
+
+        function setupFormValidation() {
+            const submissionForm = document.getElementById('submissionForm');
+            if (!submissionForm) return;
+
+            submissionForm.addEventListener('submit', function(e) {
+                if (!editor) return true;
+                
+                const code = editor.getValue().trim();
+                const codeError = document.getElementById('codeError');
+                const codeMirrorElement = document.querySelector('.CodeMirror');
+
+                // Reset previous error states
+                if (codeError) codeError.style.display = 'none';
+                if (codeMirrorElement) codeMirrorElement.classList.remove('error');
+
+                // Check if code is empty
+                if (!code) {
+                    e.preventDefault();
+                    
+                    if (codeError) codeError.style.display = 'block';
+                    if (codeMirrorElement) {
+                        codeMirrorElement.classList.add('error');
+                        codeMirrorElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    }
+                    
+                    editor.focus();
+                    return false;
+                }
+
+                // Update the hidden textarea with CodeMirror content
+                const codeTextarea = document.getElementById('code');
+                if (codeTextarea) {
+                    codeTextarea.value = code;
+                }
+                
+                // Show AI review section after submission
+                setTimeout(function() {
+                    const aiReviewSection = document.getElementById('aiReviewSection');
+                    if (aiReviewSection) {
+                        aiReviewSection.style.display = 'block';
+                    }
+                }, 2000);
+                
+                return true;
+            });
+        }
+
+        function setupAIReview() {
+            const aiReviewBtn = document.getElementById('aiReviewBtn');
+            if (!aiReviewBtn) return;
+
+            aiReviewBtn.addEventListener('click', handleAIReviewClick);
+        }
+
+        function handleAIReviewClick() {
+            const modalElement = document.getElementById('aiReviewModal');
+            if (!modalElement) return;
+
+            const modal = new bootstrap.Modal(modalElement);
+            modal.show();
+            
+            // Show loading state
+            showAIReviewLoading();
+            
+            // Get submission ID safely
+            const submissionId = getSubmissionId();
+            
+            if (!submissionId) {
+                showAiReviewError('No recent submission found. Please submit a solution first.');
+                return;
+            }
+            
+            // Make AJAX request
+            makeAIReviewRequest(submissionId);
+        }
+
+        function showAIReviewLoading() {
+            const loadingEl = document.getElementById('aiReviewLoading');
+            const contentEl = document.getElementById('aiReviewContent');
+            const errorEl = document.getElementById('aiReviewError');
+            
+            if (loadingEl) loadingEl.style.display = 'block';
+            if (contentEl) contentEl.style.display = 'none';
+            if (errorEl) errorEl.style.display = 'none';
+        }
+
+        function getSubmissionId() {
+            // Try to get from template variables (this would be populated by Django)
+            const userSubmissionsScript = document.getElementById('user-submissions-data');
+            if (userSubmissionsScript) {
+                try {
+                    const data = JSON.parse(userSubmissionsScript.textContent);
+                    if (data && data.length > 0) {
+                        return data[0].id;
+                    }
+                } catch (e) {
+                    console.error('Error parsing submission data:', e);
+                }
+            }
+            
+            // Fallback: try to get from session or other source
+            // This would need to be populated by your Django view
+            return null;
+        }
+
+        function makeAIReviewRequest(submissionId) {
+            const csrfToken = getCSRFToken();
+            
+            fetch(`/ai-review/${submissionId}/`, {
+                method: 'GET',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-CSRFToken': csrfToken
+                }
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                hideAIReviewLoading();
+                
+                if (data.success) {
+                    showAIReviewContent(data.review);
+                } else {
+                    showAiReviewError(data.error || 'Failed to get AI review');
+                }
+            })
+            .catch(error => {
+                hideAIReviewLoading();
+                showAiReviewError('Network error. Please check your connection and try again.');
+                console.error('AI Review Error:', error);
+            });
+        }
+
+        function getCSRFToken() {
+            const csrfElement = document.querySelector('[name=csrfmiddlewaretoken]');
+            return csrfElement ? csrfElement.value : '';
+        }
+
+        function hideAIReviewLoading() {
+            const loadingEl = document.getElementById('aiReviewLoading');
+            if (loadingEl) loadingEl.style.display = 'none';
+        }
+
+        function showAIReviewContent(review) {
+            const reviewTextEl = document.getElementById('aiReviewText');
+            const contentEl = document.getElementById('aiReviewContent');
+            
+            if (reviewTextEl) {
+                reviewTextEl.innerHTML = formatAiReview(review);
+            }
+            if (contentEl) {
+                contentEl.style.display = 'block';
+            }
+        }
+
+        function showAIReviewIfNeeded() {
+            // This function can be enhanced based on your Django template logic
+            // For now, it's a placeholder
+        }
 
         function showCode(code) {
-            document.getElementById('codeContent').textContent = code;
-            new bootstrap.Modal(document.getElementById('codeModal')).show();
+            const codeContent = document.getElementById('codeContent');
+            const codeModal = document.getElementById('codeModal');
+            if (codeContent && codeModal) {
+                codeContent.textContent = code;
+                const modal = new bootstrap.Modal(codeModal);
+                modal.show();
+            }
         }
+
+        function showAiReviewError(message) {
+            const errorTextEl = document.getElementById('aiReviewErrorText');
+            const errorEl = document.getElementById('aiReviewError');
+            if (errorTextEl && errorEl) {
+                errorTextEl.textContent = message;
+                errorEl.style.display = 'block';
+            }
+        }
+
+        function formatAiReview(text) {
+            if (!text) return '';
+            
+            // Basic markdown-like formatting
+            return text
+                .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                .replace(/\*(.*?)\*/g, '<em>$1</em>')
+                .replace(/`(.*?)`/g, '<code>$1</code>')
+                .replace(/^### (.*$)/gm, '<h3>$1</h3>')
+                .replace(/^## (.*$)/gm, '<h2>$1</h2>')
+                .replace(/^# (.*$)/gm, '<h1>$1</h1>')
+                .replace(/\n\n/g, '</p><p>')
+                .replace(/\n/g, '<br>')
+                .replace(/^(.*)$/, '<p>$1</p>')
+                .replace(/```([\s\S]*?)```/g, '<pre><code>$1</code></pre>');
+        }
+
+
     </script>
 </body>
 </html>

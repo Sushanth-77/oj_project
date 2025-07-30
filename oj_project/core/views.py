@@ -12,6 +12,9 @@ import uuid
 from pathlib import Path
 import tempfile
 import shutil
+from django.http import JsonResponse
+import requests
+import json
 
 def register_user(request):
     """User registration view"""
@@ -109,10 +112,108 @@ def problem_detail(request, short_code):
         'user_submissions': user_submissions,
     }
     return render(request, 'problem_detail.html', context)
+@login_required
+def ai_review_submission(request, submission_id):
+    """Get AI review for a submission using Gemini LLM"""
+    submission = get_object_or_404(Submission, id=submission_id, user=request.user)
+    
+    try:
+        # Get Gemini API key from settings
+        api_key = getattr(settings, 'GEMINI_API_KEY', None)
+        if not api_key:
+            return JsonResponse({
+                'error': 'AI review service is not configured. Please contact administrator.'
+            })
+        
+        # Prepare the prompt for Gemini
+        prompt = f"""
+        You are a coding mentor reviewing a programming solution. Please analyze the following code and provide constructive feedback.
 
+        Problem: {submission.problem.name}
+        Programming Language: {get_language_display(submission)}
+        Submission Status: {submission.get_verdict_display()}
+
+        Code:
+        ```
+        {submission.code_text}
+        ```
+
+        Please provide:
+        1. Code quality assessment (1-5 stars)
+        2. Time complexity analysis
+        3. Space complexity analysis
+        4. Specific optimization suggestions
+        5. Best practices recommendations
+        6. Alternative approaches if applicable
+
+        Keep the review constructive and educational. Focus on helping the programmer improve.
+        """
+        
+        # Call Gemini API
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key={api_key}"
+        
+        headers = {
+            'Content-Type': 'application/json',
+        }
+        
+        data = {
+            "contents": [{
+                "parts": [{
+                    "text": prompt
+                }]
+            }]
+        }
+        
+        response = requests.post(url, headers=headers, json=data, timeout=30)
+        
+        if response.status_code == 200:
+            result = response.json()
+            if 'candidates' in result and len(result['candidates']) > 0:
+                ai_review = result['candidates'][0]['content']['parts'][0]['text']
+                return JsonResponse({
+                    'success': True,
+                    'review': ai_review
+                })
+            else:
+                return JsonResponse({
+                    'error': 'No review generated. Please try again.'
+                })
+        else:
+            return JsonResponse({
+                'error': f'AI service error: {response.status_code}'
+            })
+            
+    except requests.exceptions.Timeout:
+        return JsonResponse({
+            'error': 'AI review request timed out. Please try again.'
+        })
+    except Exception as e:
+        return JsonResponse({
+            'error': f'Error getting AI review: {str(e)}'
+        })
+
+def get_language_display(submission):
+    """Helper function to get language display name"""
+    language_map = {
+        'py': 'Python 3',
+        'cpp': 'C++',
+        'c': 'C'
+    }
+    # Extract language from submission (you might need to add a language field to Submission model)
+    # For now, we'll try to detect from code or use a default
+    code = submission.code_text.lower()
+    if 'print(' in code or 'def ' in code or 'import ' in code:
+        return 'Python 3'
+    elif '#include' in code and ('cout' in code or 'printf' in code):
+        if 'cout' in code:
+            return 'C++'
+        else:
+            return 'C'
+    else:
+        return 'Unknown'
 @login_required
 def handle_submission(request, problem):
-    """Handle code submission and evaluation"""
+    """Handle code submission and evaluation - UPDATED"""
     code = request.POST.get('code', '').strip()
     language = request.POST.get('language', 'py')
     
@@ -127,13 +228,16 @@ def handle_submission(request, problem):
         return redirect('core:problem_detail', short_code=problem.short_code)
     
     try:
-        # Create submission record
+        # Create submission record with language info
         submission = Submission.objects.create(
             problem=problem,
             user=request.user,
             code_text=code,
             verdict='CE'  # Default to compilation error
         )
+        
+        # Store language info in session for this submission
+        request.session[f'submission_{submission.id}_language'] = language
         
         # Test the code against test cases
         verdict = evaluate_submission(submission, language)
@@ -153,6 +257,9 @@ def handle_submission(request, problem):
             messages.success(request, verdict_messages[verdict])
         else:
             messages.error(request, verdict_messages[verdict])
+        
+        # Store the latest submission ID in session for AI review
+        request.session['latest_submission_id'] = submission.id
             
     except Exception as e:
         messages.error(request, f'An error occurred while processing your submission: {str(e)}')

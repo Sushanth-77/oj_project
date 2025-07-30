@@ -3,7 +3,7 @@ from django.urls import path
 from django.shortcuts import redirect
 from .views import (
     register_user, login_user, logout_user, 
-    problems_list, problem_detail, submissions_list
+    problems_list, problem_detail, submissions_list,ai_review_submission
 )
 
 app_name = 'core'
@@ -24,5 +24,6 @@ urlpatterns = [
     # Main application URLs
     path('problems/', problems_list, name='problems_list'),
     path('problem/<str:short_code>/', problem_detail, name='problem_detail'),
+    path('ai-review/<int:submission_id>/', ai_review_submission, name='ai_review_submission'),
     path('submissions/', submissions_list, name='submissions_list'),
 ]
