@@ -27,21 +27,31 @@ class TestCase(models.Model):
         return f'{visibility} Test Case for {self.problem.short_code}'
     
 class Submission(models.Model):
-    VERDICTS = (('AC','Accepted'),('WA','Wrong Answer'),('TLE','Time Limit Exceeded'),('RE','Runtime Error'),('CE','Compilation Error'))
+    LANGUAGE_CHOICES = [
+        ('py', 'Python 3'),
+        ('cpp', 'C++'),
+        ('c', 'C'),
+    ]
+    
+    VERDICT_CHOICES = [
+        ('AC', 'Accepted'),
+        ('WA', 'Wrong Answer'),
+        ('TLE', 'Time Limit Exceeded'),
+        ('RE', 'Runtime Error'),
+        ('CE', 'Compilation Error'),
+    ]
+    
     problem = models.ForeignKey(Problem, on_delete=models.CASCADE)
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     code_text = models.TextField()
-    verdict = models.CharField(max_length=3,choices=VERDICTS)
+    language = models.CharField(max_length=10, choices=LANGUAGE_CHOICES, default='py')  # Add this field
+    verdict = models.CharField(max_length=10, choices=VERDICT_CHOICES)
     submitted = models.DateTimeField(auto_now_add=True)
-
+    
+    def __str__(self):
+        return f"{self.user.username} - {self.problem.short_code} - {self.verdict}"
+    
     class Meta:
         ordering = ['-submitted']
-        indexes = [
-            models.Index(fields=['user', 'problem']),
-            models.Index(fields=['user', '-submitted']),
-            models.Index(fields=['problem', '-submitted']),
-        ]
 
-    def __str__(self):
-        return f'Submission by {self.user} for {self.problem.short_code} - {self.verdict}'
     

@@ -112,9 +112,12 @@ def problem_detail(request, short_code):
         'user_submissions': user_submissions,
     }
     return render(request, 'problem_detail.html', context)
+import time
+import random
+
 @login_required
 def ai_review_submission(request, submission_id):
-    """Get AI review for a submission using Gemini LLM"""
+    """Get AI review for a submission using Gemini LLM with retry logic"""
     submission = get_object_or_404(Submission, id=submission_id, user=request.user)
     
     try:
@@ -122,85 +125,266 @@ def ai_review_submission(request, submission_id):
         api_key = getattr(settings, 'GEMINI_API_KEY', None)
         if not api_key:
             return JsonResponse({
+                'success': False,
                 'error': 'AI review service is not configured. Please contact administrator.'
             })
         
-        # Prepare the prompt for Gemini
-        prompt = f"""
-        You are a coding mentor reviewing a programming solution. Please analyze the following code and provide constructive feedback.
-
-        Problem: {submission.problem.name}
-        Programming Language: {get_language_display(submission)}
-        Submission Status: {submission.get_verdict_display()}
-
-        Code:
-        ```
-        {submission.code_text}
-        ```
-
-        Please provide:
-        1. Code quality assessment (1-5 stars)
-        2. Time complexity analysis
-        3. Space complexity analysis
-        4. Specific optimization suggestions
-        5. Best practices recommendations
-        6. Alternative approaches if applicable
-
-        Keep the review constructive and educational. Focus on helping the programmer improve.
-        """
+        # Try multiple models with fallback
+        models_to_try = [
+            'gemini-1.5-flash-latest',
+            'gemini-1.5-flash',
+            'gemini-pro'
+        ]
         
-        # Call Gemini API
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key={api_key}"
-        
-        headers = {
-            'Content-Type': 'application/json',
-        }
-        
-        data = {
-            "contents": [{
-                "parts": [{
-                    "text": prompt
-                }]
-            }]
-        }
-        
-        response = requests.post(url, headers=headers, json=data, timeout=30)
-        
-        if response.status_code == 200:
-            result = response.json()
-            if 'candidates' in result and len(result['candidates']) > 0:
-                ai_review = result['candidates'][0]['content']['parts'][0]['text']
-                return JsonResponse({
-                    'success': True,
-                    'review': ai_review
-                })
+        for model_name in models_to_try:
+            result = try_ai_review_with_model(submission, api_key, model_name)
+            if result['success']:
+                return JsonResponse(result)
+            elif result.get('should_retry', False):
+                continue  # Try next model
             else:
-                return JsonResponse({
-                    'error': 'No review generated. Please try again.'
-                })
-        else:
-            return JsonResponse({
-                'error': f'AI service error: {response.status_code}'
-            })
+                return JsonResponse(result)  # Non-retryable error
+        
+        # If all models failed
+        return JsonResponse({
+            'success': False,
+            'error': 'All AI models are currently unavailable. Please try again in a few minutes.'
+        })
             
-    except requests.exceptions.Timeout:
-        return JsonResponse({
-            'error': 'AI review request timed out. Please try again.'
-        })
     except Exception as e:
+        print(f"Unexpected error in AI review: {str(e)}")
+        import traceback
+        traceback.print_exc()
         return JsonResponse({
-            'error': f'Error getting AI review: {str(e)}'
+            'success': False,
+            'error': 'An unexpected error occurred. Please try again later.'
         })
+
+def try_ai_review_with_model(submission, api_key, model_name, max_retries=3):
+    """Try AI review with a specific model and retry logic"""
+    
+    # Prepare the prompt for Gemini
+    prompt = f"""
+    You are a coding mentor reviewing a programming solution. Please analyze the following code and provide constructive feedback.
+
+    Problem: {submission.problem.name}
+    Programming Language: {get_language_display(submission)}
+    Submission Status: {submission.get_verdict_display()}
+
+    Code:
+    ```
+    {submission.code_text}
+    ```
+
+    Please provide a concise review covering:
+    1. Code quality assessment (⭐⭐⭐⭐⭐)
+    2. Time complexity: O(?)
+    3. Space complexity: O(?)
+    4. Key suggestions for improvement
+    5. Alternative approaches (if applicable)
+
+    Keep the review constructive and educational. Focus on helping the programmer improve.
+    """
+    
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={api_key}"
+    
+    headers = {
+        'Content-Type': 'application/json',
+    }
+    
+    data = {
+        "contents": [{
+            "parts": [{
+                "text": prompt
+            }]
+        }],
+        "generationConfig": {
+            "temperature": 0.7,
+            "topK": 40,
+            "topP": 0.95,
+            "maxOutputTokens": 1024,  # Reduced for faster response
+        },
+        "safetySettings": [
+            {
+                "category": "HARM_CATEGORY_HARASSMENT",
+                "threshold": "BLOCK_MEDIUM_AND_ABOVE"
+            },
+            {
+                "category": "HARM_CATEGORY_HATE_SPEECH", 
+                "threshold": "BLOCK_MEDIUM_AND_ABOVE"
+            },
+            {
+                "category": "HARM_CATEGORY_SEXUALLY_EXPLICIT",
+                "threshold": "BLOCK_MEDIUM_AND_ABOVE"
+            },
+            {
+                "category": "HARM_CATEGORY_DANGEROUS_CONTENT",
+                "threshold": "BLOCK_MEDIUM_AND_ABOVE"
+            }
+        ]
+    }
+    
+    for attempt in range(max_retries):
+        try:
+            print(f"Attempting AI review with {model_name}, attempt {attempt + 1}")
+            
+            # Add exponential backoff with jitter
+            if attempt > 0:
+                delay = (2 ** attempt) + random.uniform(0, 1)
+                print(f"Waiting {delay:.2f} seconds before retry...")
+                time.sleep(delay)
+            
+            response = requests.post(url, headers=headers, json=data, timeout=30)
+            
+            print(f"Response status: {response.status_code}")
+            
+            if response.status_code == 200:
+                try:
+                    result = response.json()
+                    if 'candidates' in result and len(result['candidates']) > 0:
+                        candidate = result['candidates'][0]
+                        if 'content' in candidate and 'parts' in candidate['content']:
+                            ai_review = candidate['content']['parts'][0]['text']
+                            return {
+                                'success': True,
+                                'review': ai_review,
+                                'model_used': model_name
+                            }
+                        else:
+                            # Check finish reason
+                            finish_reason = candidate.get('finishReason', 'UNKNOWN')
+                            if finish_reason == 'SAFETY':
+                                return {
+                                    'success': False,
+                                    'error': 'AI review was blocked by safety filters. Please try with different code.',
+                                    'should_retry': False
+                                }
+                            elif finish_reason == 'MAX_TOKENS':
+                                return {
+                                    'success': False,
+                                    'error': 'Code is too long for AI review. Please try with shorter code.',
+                                    'should_retry': False
+                                }
+                    
+                    return {
+                        'success': False,
+                        'error': 'No review generated. Please try again.',
+                        'should_retry': True
+                    }
+                    
+                except json.JSONDecodeError as e:
+                    return {
+                        'success': False,
+                        'error': 'Invalid response from AI service.',
+                        'should_retry': True
+                    }
+            
+            elif response.status_code == 503:
+                # Service unavailable - this is retryable
+                print(f"Model {model_name} is overloaded, attempt {attempt + 1}")
+                if attempt == max_retries - 1:
+                    return {
+                        'success': False,
+                        'error': f'AI model {model_name} is currently overloaded.',
+                        'should_retry': True
+                    }
+                continue
+                
+            elif response.status_code == 429:
+                # Rate limit exceeded - retryable with longer delay
+                print(f"Rate limit hit for {model_name}, attempt {attempt + 1}")
+                if attempt < max_retries - 1:
+                    time.sleep(5 + random.uniform(1, 3))  # Longer delay for rate limits
+                    continue
+                return {
+                    'success': False,
+                    'error': 'Rate limit exceeded. Please try again in a few minutes.',
+                    'should_retry': True
+                }
+                
+            elif response.status_code == 400:
+                try:
+                    error_data = response.json()
+                    error_message = error_data.get('error', {}).get('message', 'Bad request')
+                    return {
+                        'success': False,
+                        'error': f'API Error: {error_message}',
+                        'should_retry': False
+                    }
+                except:
+                    return {
+                        'success': False,
+                        'error': 'Invalid request to AI service.',
+                        'should_retry': False
+                    }
+                    
+            elif response.status_code == 403:
+                return {
+                    'success': False,
+                    'error': 'API key is invalid or has insufficient permissions.',
+                    'should_retry': False
+                }
+                
+            elif response.status_code == 404:
+                return {
+                    'success': False,
+                    'error': f'AI model {model_name} not found.',
+                    'should_retry': True  # Try next model
+                }
+                
+            else:
+                print(f"Unexpected status code {response.status_code}: {response.text[:200]}")
+                return {
+                    'success': False,
+                    'error': f'AI service error: {response.status_code}',
+                    'should_retry': True if attempt < max_retries - 1 else False
+                }
+                
+        except requests.exceptions.Timeout:
+            print(f"Request timeout for {model_name}, attempt {attempt + 1}")
+            if attempt == max_retries - 1:
+                return {
+                    'success': False,
+                    'error': 'AI review request timed out.',
+                    'should_retry': True
+                }
+            continue
+            
+        except requests.exceptions.ConnectionError:
+            print(f"Connection error for {model_name}, attempt {attempt + 1}")
+            if attempt == max_retries - 1:
+                return {
+                    'success': False,
+                    'error': 'Could not connect to AI service.',
+                    'should_retry': True
+                }
+            continue
+            
+        except Exception as e:
+            print(f"Unexpected error with {model_name}: {str(e)}")
+            return {
+                'success': False,
+                'error': f'Unexpected error: {str(e)}',
+                'should_retry': False
+            }
+    
+    return {
+        'success': False,
+        'error': f'AI model {model_name} failed after {max_retries} attempts.',
+        'should_retry': True
+    }
 
 def get_language_display(submission):
     """Helper function to get language display name"""
-    language_map = {
-        'py': 'Python 3',
-        'cpp': 'C++',
-        'c': 'C'
-    }
-    # Extract language from submission (you might need to add a language field to Submission model)
-    # For now, we'll try to detect from code or use a default
+    if hasattr(submission, 'language') and submission.language:
+        language_map = {
+            'py': 'Python 3',
+            'cpp': 'C++',
+            'c': 'C'
+        }
+        return language_map.get(submission.language, 'Unknown')
+    
+    # Fallback to code detection
     code = submission.code_text.lower()
     if 'print(' in code or 'def ' in code or 'import ' in code:
         return 'Python 3'
@@ -233,11 +417,9 @@ def handle_submission(request, problem):
             problem=problem,
             user=request.user,
             code_text=code,
+            language=language,  # Store language in the model
             verdict='CE'  # Default to compilation error
         )
-        
-        # Store language info in session for this submission
-        request.session[f'submission_{submission.id}_language'] = language
         
         # Test the code against test cases
         verdict = evaluate_submission(submission, language)
@@ -257,9 +439,6 @@ def handle_submission(request, problem):
             messages.success(request, verdict_messages[verdict])
         else:
             messages.error(request, verdict_messages[verdict])
-        
-        # Store the latest submission ID in session for AI review
-        request.session['latest_submission_id'] = submission.id
             
     except Exception as e:
         messages.error(request, f'An error occurred while processing your submission: {str(e)}')
