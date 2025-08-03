@@ -179,19 +179,19 @@
                                     <i class="fas fa-history"></i> My Submissions
                                 </a></li>
                                 <li><hr class="dropdown-divider"></li>
-                                <li><a class="dropdown-item" href="{% url 'core:logout-user' %}">
+                                <li><a class="dropdown-item" href="{% url 'authentication:logout-user' %}">
                                     <i class="fas fa-sign-out-alt"></i> Logout
                                 </a></li>
                             </ul>
                         </li>
                     {% else %}
                         <li class="nav-item">
-                            <a class="nav-link" href="{% url 'core:login-user' %}">
+                            <a class="nav-link" href="{% url 'authentication:login-user' %}">
                                 <i class="fas fa-sign-in-alt"></i> Login
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link" href="{% url 'core:register-user' %}">
+                            <a class="nav-link" href="{% url 'authentication:register-user' %}">
                                 <i class="fas fa-user-plus"></i> Register
                             </a>
                         </li>
@@ -313,7 +313,7 @@
                         <i class="fas fa-lock fa-3x text-muted mb-3"></i>
                         <h5>Login Required</h5>
                         <p class="text-muted">Please login to submit your solution.</p>
-                        <a href="{% url 'core:login-user' %}" class="btn btn-modern">
+                        <a href="{% url 'authentication:login-user' %}" class="btn btn-modern">
                             <i class="fas fa-sign-in-alt"></i> Login
                         </a>
                     </div>
@@ -601,7 +601,7 @@
         function makeAIReviewRequest(submissionId) {
             const csrfToken = getCSRFToken();
             
-            fetch(`/ai-review/${submissionId}/`, {
+            fetch(`{% url 'compiler:ai_review_submission' 0 %}`.replace('0', submissionId), {
                 method: 'GET',
                 headers: {
                     'X-Requested-With': 'XMLHttpRequest',

@@ -124,7 +124,7 @@
             required
           />
         </div>
-        <p>Don't have an account? <a href="/auth/register/">Register</a></p>
+        <p>Don't have an account? <a href="{% url 'authentication:register-user' %}">Register</a></p>
         <button type="submit" class="btn btn-primary">Login</button>
       </form>
     </div>

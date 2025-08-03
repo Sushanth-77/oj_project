@@ -22,10 +22,10 @@
 <body>
 <div class="container">
     <div class="d-flex justify-content-between align-items-center mt-4 mb-3">
-        <a href="/problems/" class="back-link">&larr; Back to Problems</a>
+        <a href="{% url 'core:problems_list' %}" class="back-link">&larr; Back to Problems</a>
         <div>
             <span class="me-3">Welcome, {{ user.username }}</span>
-            <a href="/auth/logout/" class="btn btn-outline-secondary btn-sm">Logout</a>
+            <a href="{% url 'authentication:logout-user' %}" class="btn btn-outline-secondary btn-sm">Logout</a>
         </div>
     </div>
 
@@ -51,7 +51,7 @@
                         <tr>
                             <td>{{ forloop.counter }}</td>
                             <td>
-                                <a href="/problem/{{ submission.problem.short_code }}/" class="text-decoration-none">
+                                <a href="{% url 'core:problem_detail' submission.problem.short_code %}" class="text-decoration-none">
                                     {{ submission.problem.name }}
                                 </a>
                                 <br>
@@ -78,7 +78,7 @@
             <div class="text-center text-muted py-5">
                 <h5>No submissions yet</h5>
                 <p>Start solving problems to see your submissions here.</p>
-                <a href="/problems/" class="btn btn-primary">Browse Problems</a>
+                <a href="{% url 'core:problems_list' %}" class="btn btn-primary">Browse Problems</a>
             </div>
             {% endif %}
         </div>

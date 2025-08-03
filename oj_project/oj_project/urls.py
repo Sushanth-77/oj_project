@@ -1,9 +1,16 @@
-# oj_project/oj_project/urls.py
+# oj_project/urls.py - Updated with separated apps
 from django.contrib import admin
 from django.urls import path, include
 
 urlpatterns = [
     path('admin/', admin.site.urls),
-    # Include core URLs - this includes the root redirect and all other URLs
+    
+    # Authentication URLs
+    path('auth/', include('authentication.urls')),
+    
+    # Compiler/AI review URLs  
+    path('compiler/', include('compiler.urls')),
+    
+    # Core URLs (includes root redirect and main functionality)
     path('', include('core.urls')),
 ]
