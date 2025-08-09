@@ -1,4 +1,3 @@
-
 # Create your views here.
 # compiler/views.py
 from django.http import JsonResponse
@@ -16,6 +15,10 @@ import requests
 import json
 import time
 import random
+import logging
+
+# Set up logging
+logger = logging.getLogger(__name__)
 
 @login_required
 def ai_review_submission(request, submission_id):
@@ -54,9 +57,7 @@ def ai_review_submission(request, submission_id):
         })
             
     except Exception as e:
-        print(f"Unexpected error in AI review: {str(e)}")
-        import traceback
-        traceback.print_exc()
+        logger.error(f"Unexpected error in AI review: {str(e)}", exc_info=True)
         return JsonResponse({
             'success': False,
             'error': 'An unexpected error occurred. Please try again later.'
@@ -104,7 +105,7 @@ def try_ai_review_with_model(submission, api_key, model_name, max_retries=3):
             "temperature": 0.7,
             "topK": 40,
             "topP": 0.95,
-            "maxOutputTokens": 1024,  # Reduced for faster response
+            "maxOutputTokens": 1024,
         },
         "safetySettings": [
             {
@@ -128,17 +129,17 @@ def try_ai_review_with_model(submission, api_key, model_name, max_retries=3):
     
     for attempt in range(max_retries):
         try:
-            print(f"Attempting AI review with {model_name}, attempt {attempt + 1}")
+            logger.info(f"Attempting AI review with {model_name}, attempt {attempt + 1}")
             
             # Add exponential backoff with jitter
             if attempt > 0:
                 delay = (2 ** attempt) + random.uniform(0, 1)
-                print(f"Waiting {delay:.2f} seconds before retry...")
+                logger.info(f"Waiting {delay:.2f} seconds before retry...")
                 time.sleep(delay)
             
             response = requests.post(url, headers=headers, json=data, timeout=30)
             
-            print(f"Response status: {response.status_code}")
+            logger.info(f"Response status: {response.status_code}")
             
             if response.status_code == 200:
                 try:
@@ -182,8 +183,7 @@ def try_ai_review_with_model(submission, api_key, model_name, max_retries=3):
                     }
             
             elif response.status_code == 503:
-                # Service unavailable - this is retryable
-                print(f"Model {model_name} is overloaded, attempt {attempt + 1}")
+                logger.warning(f"Model {model_name} is overloaded, attempt {attempt + 1}")
                 if attempt == max_retries - 1:
                     return {
                         'success': False,
@@ -193,10 +193,9 @@ def try_ai_review_with_model(submission, api_key, model_name, max_retries=3):
                 continue
                 
             elif response.status_code == 429:
-                # Rate limit exceeded - retryable with longer delay
-                print(f"Rate limit hit for {model_name}, attempt {attempt + 1}")
+                logger.warning(f"Rate limit hit for {model_name}, attempt {attempt + 1}")
                 if attempt < max_retries - 1:
-                    time.sleep(5 + random.uniform(1, 3))  # Longer delay for rate limits
+                    time.sleep(5 + random.uniform(1, 3))
                     continue
                 return {
                     'success': False,
@@ -231,11 +230,11 @@ def try_ai_review_with_model(submission, api_key, model_name, max_retries=3):
                 return {
                     'success': False,
                     'error': f'AI model {model_name} not found.',
-                    'should_retry': True  # Try next model
+                    'should_retry': True
                 }
                 
             else:
-                print(f"Unexpected status code {response.status_code}: {response.text[:200]}")
+                logger.error(f"Unexpected status code {response.status_code}: {response.text[:200]}")
                 return {
                     'success': False,
                     'error': f'AI service error: {response.status_code}',
@@ -243,7 +242,7 @@ def try_ai_review_with_model(submission, api_key, model_name, max_retries=3):
                 }
                 
         except requests.exceptions.Timeout:
-            print(f"Request timeout for {model_name}, attempt {attempt + 1}")
+            logger.warning(f"Request timeout for {model_name}, attempt {attempt + 1}")
             if attempt == max_retries - 1:
                 return {
                     'success': False,
@@ -253,7 +252,7 @@ def try_ai_review_with_model(submission, api_key, model_name, max_retries=3):
             continue
             
         except requests.exceptions.ConnectionError:
-            print(f"Connection error for {model_name}, attempt {attempt + 1}")
+            logger.warning(f"Connection error for {model_name}, attempt {attempt + 1}")
             if attempt == max_retries - 1:
                 return {
                     'success': False,
@@ -263,7 +262,7 @@ def try_ai_review_with_model(submission, api_key, model_name, max_retries=3):
             continue
             
         except Exception as e:
-            print(f"Unexpected error with {model_name}: {str(e)}")
+            logger.error(f"Unexpected error with {model_name}: {str(e)}", exc_info=True)
             return {
                 'success': False,
                 'error': f'Unexpected error: {str(e)}',
@@ -298,9 +297,24 @@ def get_language_display(submission):
     else:
         return 'Unknown'
 
+def get_docker_safe_base_path():
+    """Get base path that works in Docker environment"""
+    try:
+        from django.conf import settings
+        base_path = Path(settings.BASE_DIR)
+    except:
+        base_path = Path("/app")  # Default Docker working directory
+    
+    # Ensure the path exists
+    if not base_path.exists():
+        base_path = Path.cwd()
+    
+    return base_path
+
 def evaluate_submission(submission, language):
     """
     Evaluate submission against both database test cases and file-based test cases
+    Fixed for Docker environment
     """
     problem = submission.problem
     
@@ -309,17 +323,17 @@ def evaluate_submission(submission, language):
         visible_test_cases = problem.testcases.filter(is_hidden=False) if hasattr(problem.testcases.first(), 'is_hidden') else problem.testcases.all()
         
         if visible_test_cases.exists():
-            print(f"Phase 1: Evaluating {visible_test_cases.count()} visible test cases from database...")
+            logger.info(f"Phase 1: Evaluating {visible_test_cases.count()} visible test cases from database...")
             for i, test_case in enumerate(visible_test_cases, 1):
-                print(f"\n=== Testing visible test case {i} ===")
-                print(f"Input: {repr(test_case.input)}")
-                print(f"Expected: {repr(test_case.output)}")
+                logger.info(f"Testing visible test case {i}")
+                logger.debug(f"Input: {repr(test_case.input)}")
+                logger.debug(f"Expected: {repr(test_case.output)}")
                 
                 output = run_code(language, submission.code_text, test_case.input)
-                print(f"Raw output: {repr(output)}")
+                logger.debug(f"Raw output: {repr(output)}")
                 
                 if output is None:
-                    print("Runtime error in visible test case")
+                    logger.error("Runtime error in visible test case")
                     return 'RE'
                 
                 # Enhanced output comparison
@@ -327,164 +341,192 @@ def evaluate_submission(submission, language):
                 actual_output = output.strip().replace('\r\n', '\n').replace('\r', '\n')
                 
                 if expected_output != actual_output:
-                    print(f"\n!!! MISMATCH in visible test case {i} !!!")
+                    logger.error(f"MISMATCH in visible test case {i}")
                     return 'WA'
                 else:
-                    print(f"✓ Test case {i} PASSED")
+                    logger.info(f"Test case {i} PASSED")
         
         # Phase 2: Evaluate file-based test cases
         file_verdict = evaluate_file_based_test_cases(submission, language)
         if file_verdict != 'AC':
             return file_verdict
             
-        print("✓ All test cases passed!")
+        logger.info("All test cases passed!")
         return 'AC'
         
     except Exception as e:
-        print(f"Exception during evaluation: {str(e)}")
-        import traceback
-        traceback.print_exc()
+        logger.error(f"Exception during evaluation: {str(e)}", exc_info=True)
         return 'RE'
 
-def parse_test_cases_from_files(input_content, output_content, problem=None):
+def detect_test_case_format(input_content, output_content):
     """
-    Parse test cases from input and output files.
-    Supports multiple formats:
-    1. Single-line test cases (each line is one test case)
-    2. Multi-line test cases separated by empty lines
-    3. Multi-line test cases with specific separators
-    4. Fixed number of lines per test case (if problem config available)
+    Intelligently detect the format of test cases and return parsing strategy
     """
-    
-    # Method 1: Try to detect if we have multi-line test cases separated by empty lines
-    input_sections = input_content.strip().split('\n\n')
-    output_sections = output_content.strip().split('\n\n')
-    
-    print(f"Detected {len(input_sections)} input sections and {len(output_sections)} output sections")
-    
-    # Check if problem has specific parsing configuration
-    if problem and hasattr(problem, 'test_case_format'):
-        format_type = getattr(problem, 'test_case_format', 'auto')
-        lines_per_case = getattr(problem, 'lines_per_test_case', None)
-        
-        if format_type == 'fixed_lines' and lines_per_case:
-            print(f"Using fixed lines format: {lines_per_case} lines per test case")
-            return parse_fixed_lines_format(input_content, output_content, lines_per_case)
-    
-    # If we have multiple sections separated by empty lines, use them
-    if len(input_sections) > 1 and len(input_sections) == len(output_sections):
-        print("Using multi-line test cases separated by empty lines")
-        test_cases = []
-        for i, (inp_section, out_section) in enumerate(zip(input_sections, output_sections)):
-            test_cases.append({
-                'input': inp_section.strip(),
-                'output': out_section.strip(),
-                'case_number': i + 1
-            })
-        return test_cases
-    
-    # Method 2: Check if input/output have same number of lines (single-line test cases)
     input_lines = input_content.strip().split('\n')
     output_lines = output_content.strip().split('\n')
     
+    # Strategy 1: Single line inputs/outputs (like NQ.txt)
     if len(input_lines) == len(output_lines) and len(input_lines) > 1:
-        print("Using single-line test cases (each line is one test case)")
-        test_cases = []
+        # Check if each input line looks like a single value
+        single_value_pattern = True
+        for line in input_lines[:5]:  # Check first 5 lines
+            if len(line.strip().split()) > 1:
+                single_value_pattern = False
+                break
+        
+        if single_value_pattern:
+            return {
+                'format': 'single_line',
+                'description': 'Each line is one test case'
+            }
+    
+    # Strategy 2: Multi-line test cases separated by empty lines
+    input_sections = input_content.strip().split('\n\n')
+    output_sections = output_content.strip().split('\n\n')
+    
+    if len(input_sections) > 1 and len(input_sections) == len(output_sections):
+        return {
+            'format': 'empty_line_separated',
+            'description': 'Multi-line test cases separated by empty lines',
+            'sections': list(zip(input_sections, output_sections))
+        }
+    
+    # Strategy 3: First line indicates number of test cases
+    first_input_line = input_lines[0].strip()
+    if first_input_line.isdigit():
+        num_cases = int(first_input_line)
+        if num_cases > 0 and num_cases <= 1000:
+            return {
+                'format': 'count_prefixed',
+                'description': 'First line contains number of test cases',
+                'count': num_cases,
+                'remaining_input': '\n'.join(input_lines[1:])
+            }
+    
+    # Strategy 4: Fixed number of lines per test case
+    if len(input_lines) % len(output_lines) == 0 and len(output_lines) > 0:
+        lines_per_case = len(input_lines) // len(output_lines)
+        if lines_per_case > 1 and lines_per_case <= 10:
+            return {
+                'format': 'fixed_lines',
+                'description': f'{lines_per_case} input lines per test case',
+                'lines_per_case': lines_per_case
+            }
+    
+    # Fallback: Single test case
+    return {
+        'format': 'single_test',
+        'description': 'Entire content is one test case'
+    }
+
+def parse_test_cases_smart(input_content, output_content):
+    """Smart test case parser that handles multiple formats"""
+    format_info = detect_test_case_format(input_content, output_content)
+    
+    logger.info(f"Detected format: {format_info['format']} - {format_info['description']}")
+    
+    test_cases = []
+    
+    if format_info['format'] == 'single_line':
+        # Each line is one test case (like NQ.txt)
+        input_lines = input_content.strip().split('\n')
+        output_lines = output_content.strip().split('\n')
+        
         for i, (inp_line, out_line) in enumerate(zip(input_lines, output_lines)):
             test_cases.append({
                 'input': inp_line.strip(),
                 'output': out_line.strip(),
-                'case_number': i + 1
+                'case_number': i + 1,
+                'is_multiline': False
             })
-        return test_cases
     
-    # Method 3: Try to detect pattern-based separation
-    # Look for common patterns like "Case 1:", "Test 1:", etc.
-    import re
-    case_pattern = re.compile(r'^(Case|Test|Input)\s*\d+', re.MULTILINE | re.IGNORECASE)
-    
-    input_matches = list(case_pattern.finditer(input_content))
-    output_matches = list(case_pattern.finditer(output_content))
-    
-    if len(input_matches) > 1 and len(input_matches) == len(output_matches):
-        print("Using pattern-based test case separation")
-        test_cases = []
-        
-        for i in range(len(input_matches)):
-            # Extract input for this test case
-            start_pos = input_matches[i].end()
-            end_pos = input_matches[i + 1].start() if i + 1 < len(input_matches) else len(input_content)
-            inp_text = input_content[start_pos:end_pos].strip()
-            
-            # Extract output for this test case
-            start_pos = output_matches[i].end()
-            end_pos = output_matches[i + 1].start() if i + 1 < len(output_matches) else len(output_content)
-            out_text = output_content[start_pos:end_pos].strip()
-            
+    elif format_info['format'] == 'empty_line_separated':
+        # Multi-line test cases separated by empty lines
+        for i, (inp_section, out_section) in enumerate(format_info['sections']):
             test_cases.append({
-                'input': inp_text,
-                'output': out_text,
-                'case_number': i + 1
+                'input': inp_section.strip(),
+                'output': out_section.strip(),
+                'case_number': i + 1,
+                'is_multiline': True
             })
-        return test_cases
     
-    # Method 4: Fallback - treat entire content as single test case
-    print("Using entire content as single test case")
-    return [{
-        'input': input_content.strip(),
-        'output': output_content.strip(),
-        'case_number': 1
-    }]
-
-def parse_fixed_lines_format(input_content, output_content, lines_per_case):
-    """
-    Parse test cases when each test case has a fixed number of lines
-    """
-    input_lines = input_content.strip().split('\n')
-    output_lines = output_content.strip().split('\n')
-    
-    test_cases = []
-    case_num = 1
-    
-    # Parse input
-    for i in range(0, len(input_lines), lines_per_case):
-        if i + lines_per_case <= len(input_lines):
-            input_case = '\n'.join(input_lines[i:i + lines_per_case])
-            
-            # Find corresponding output (assuming same structure)
-            output_start = (case_num - 1) * lines_per_case
-            if output_start < len(output_lines):
-                # Try to determine output lines dynamically or use same count
-                output_case = output_lines[output_start] if output_start < len(output_lines) else ""
+    elif format_info['format'] == 'count_prefixed':
+        # First line contains number of test cases
+        remaining_input = format_info['remaining_input']
+        output_lines = output_content.strip().split('\n')
+        input_lines = remaining_input.split('\n')
+        num_cases = format_info['count']
+        
+        if len(input_lines) == num_cases and len(output_lines) == num_cases:
+            # Simple: one line input, one line output per case
+            for i in range(num_cases):
+                test_cases.append({
+                    'input': input_lines[i].strip(),
+                    'output': output_lines[i].strip(),
+                    'case_number': i + 1,
+                    'is_multiline': False
+                })
+        else:
+            # Complex: multiple lines per test case
+            lines_per_case = len(input_lines) // num_cases
+            for i in range(num_cases):
+                start_idx = i * lines_per_case
+                end_idx = start_idx + lines_per_case
+                case_input = '\n'.join(input_lines[start_idx:end_idx])
+                case_output = output_lines[i] if i < len(output_lines) else ""
                 
                 test_cases.append({
-                    'input': input_case,
-                    'output': output_case,
-                    'case_number': case_num
+                    'input': case_input.strip(),
+                    'output': case_output.strip(),
+                    'case_number': i + 1,
+                    'is_multiline': True
+                })
+    
+    elif format_info['format'] == 'fixed_lines':
+        # Fixed number of lines per test case
+        input_lines = input_content.strip().split('\n')
+        output_lines = output_content.strip().split('\n')
+        lines_per_case = format_info['lines_per_case']
+        
+        case_num = 1
+        for i in range(0, len(input_lines), lines_per_case):
+            if i + lines_per_case <= len(input_lines):
+                input_case = '\n'.join(input_lines[i:i + lines_per_case])
+                output_case = output_lines[case_num - 1] if case_num - 1 < len(output_lines) else ""
+                
+                test_cases.append({
+                    'input': input_case.strip(),
+                    'output': output_case.strip(),
+                    'case_number': case_num,
+                    'is_multiline': True
                 })
                 case_num += 1
+    
+    else:  # single_test
+        # Entire content is one test case
+        test_cases.append({
+            'input': input_content.strip(),
+            'output': output_content.strip(),
+            'case_number': 1,
+            'is_multiline': True
+        })
     
     return test_cases
 
 def evaluate_file_based_test_cases(submission, language):
     """
-    Evaluate test cases from input/output files with support for multi-line test cases
+    Evaluate test cases from input/output files with smart format detection
+    Handles both single-line (NQ.txt) and multi-line formats
     """
     problem = submission.problem
-    
-    try:
-        from django.conf import settings
-        base_path = Path(settings.BASE_DIR)
-    except:
-        base_path = Path(".")
+    base_path = get_docker_safe_base_path()
     
     input_path = base_path / "inputs" / f"{problem.short_code}.txt"
     output_path = base_path / "outputs" / f"{problem.short_code}.txt"
     
     if not input_path.exists() or not output_path.exists():
-        print(f"No test files found for {problem.short_code}")
-        print(f"Looking for: {input_path} and {output_path}")
-        return 'AC'  # No file tests, consider passed
+        logger.info(f"No test files found for {problem.short_code}")
+        return 'AC'
     
     try:
         # Read all inputs and outputs
@@ -494,71 +536,77 @@ def evaluate_file_based_test_cases(submission, language):
         with open(output_path, 'r', encoding='utf-8') as f:
             output_content = f.read()
         
-        print(f"Input file content: {repr(input_content)}")
-        print(f"Output file content: {repr(output_content)}")
+        logger.debug(f"Input file content (first 200 chars): {repr(input_content[:200])}")
+        logger.debug(f"Output file content (first 200 chars): {repr(output_content[:200])}")
         
-        # Parse test cases using the new method
-        test_cases = parse_test_cases_from_files(input_content, output_content, problem)
+        # Use smart parsing to detect format and parse test cases
+        test_cases = parse_test_cases_smart(input_content, output_content)
         
-        print(f"Parsed {len(test_cases)} test cases")
+        logger.info(f"Smart parser found {len(test_cases)} test cases")
         
-        # Test each case individually
+        # Test each case
         for test_case in test_cases:
             case_num = test_case['case_number']
             test_input = test_case['input']
             expected_output = test_case['output']
+            is_multiline = test_case['is_multiline']
             
-            print(f"\n=== Testing file-based test case {case_num} ===")
-            print(f"Input: {repr(test_input)}")
-            print(f"Expected: {repr(expected_output)}")
+            logger.info(f"=== Testing case {case_num} ({'multi-line' if is_multiline else 'single-line'}) ===")
+            logger.debug(f"Input: {repr(test_input)}")
+            logger.debug(f"Expected: {repr(expected_output)}")
             
-            # Run code with this specific input
+            # Run code with the input
             actual_output = run_code(language, submission.code_text, test_input)
             
             if actual_output is None:
-                print(f"Runtime error in test case {case_num}")
+                logger.error(f"Runtime error in test case {case_num}")
                 return 'RE'
             
             # Clean and compare outputs
             expected_clean = expected_output.strip()
             actual_clean = actual_output.strip()
             
-            print(f"Actual: {repr(actual_clean)}")
+            logger.debug(f"Actual: {repr(actual_clean)}")
             
             if expected_clean != actual_clean:
-                print(f"!!! MISMATCH in test case {case_num} !!!")
-                print(f"Expected: '{expected_clean}' (len: {len(expected_clean)})")
-                print(f"Actual: '{actual_clean}' (len: {len(actual_clean)})")
+                logger.error(f"MISMATCH in test case {case_num}")
+                logger.error(f"Expected: '{expected_clean}' (len: {len(expected_clean)})")
+                logger.error(f"Actual: '{actual_clean}' (len: {len(actual_clean)})")
                 
-                # Character-by-character comparison for debugging
-                max_len = max(len(expected_clean), len(actual_clean))
-                for j in range(max_len):
-                    exp_char = expected_clean[j] if j < len(expected_clean) else '<END>'
-                    act_char = actual_clean[j] if j < len(actual_clean) else '<END>'
-                    if exp_char != act_char:
-                        print(f"  First difference at position {j}: Expected {repr(exp_char)}, Got {repr(act_char)}")
+                # Show first difference for debugging
+                min_len = min(len(expected_clean), len(actual_clean))
+                for j in range(min_len):
+                    if expected_clean[j] != actual_clean[j]:
+                        logger.error(f"First diff at pos {j}: expected {repr(expected_clean[j])}, got {repr(actual_clean[j])}")
                         break
+                
                 return 'WA'
             else:
-                print(f"✓ Test case {case_num} PASSED")
+                logger.info(f"✓ Test case {case_num} PASSED")
         
         return 'AC'
         
     except Exception as e:
-        print(f"Error evaluating file-based test cases: {str(e)}")
-        import traceback
-        traceback.print_exc()
+        logger.error(f"Error in smart test case evaluation: {str(e)}", exc_info=True)
         return 'RE'
 
 def run_code(language, code, input_data):
-    """Execute code with improved error handling and cleanup"""
-    unique = str(uuid.uuid4())
+    """Execute code with Docker-safe temporary directory handling"""
+    unique = str(uuid.uuid4())[:8]  # Shorter UUID for Docker
     temp_dir = None
     
     try:
-        # Create a temporary directory for this execution
-        temp_dir = tempfile.mkdtemp(prefix=f"oj_exec_{unique}_")
+        # Create Docker-safe temporary directory
+        if os.path.exists('/tmp'):
+            temp_base = '/tmp'
+        else:
+            temp_base = get_docker_safe_base_path() / 'temp'
+            temp_base.mkdir(exist_ok=True)
+        
+        temp_dir = tempfile.mkdtemp(prefix=f"oj_exec_{unique}_", dir=temp_base)
         temp_path = Path(temp_dir)
+        
+        logger.debug(f"Created temp directory: {temp_dir}")
         
         # Create file paths
         if language == 'py':
@@ -567,32 +615,43 @@ def run_code(language, code, input_data):
             code_file_path = temp_path / f"{unique}.cpp"
         elif language == 'c':
             code_file_path = temp_path / f"{unique}.c"
+        else:
+            logger.error(f"Unsupported language: {language}")
+            return None
         
         input_file_path = temp_path / f"{unique}_input.txt"
         output_file_path = temp_path / f"{unique}_output.txt"
 
-        # Write code to file
-        with open(code_file_path, "w", encoding='utf-8') as code_file:
-            code_file.write(code)
+        # Write code to file with error handling
+        try:
+            with open(code_file_path, "w", encoding='utf-8') as code_file:
+                code_file.write(code)
+        except Exception as e:
+            logger.error(f"Failed to write code file: {e}")
+            return None
 
         # Write input data to file
-        with open(input_file_path, "w", encoding='utf-8') as input_file:
-            input_file.write(input_data if input_data is not None else '')
+        try:
+            with open(input_file_path, "w", encoding='utf-8') as input_file:
+                input_file.write(input_data if input_data is not None else '')
+        except Exception as e:
+            logger.error(f"Failed to write input file: {e}")
+            return None
 
         # Execute based on language
         if language == "cpp":
-            result = execute_cpp_improved(code_file_path, input_file_path, output_file_path, temp_path, unique)
+            result = execute_cpp_docker_safe(code_file_path, input_file_path, output_file_path, temp_path, unique)
         elif language == "c":
-            result = execute_c_improved(code_file_path, input_file_path, output_file_path, temp_path, unique)
+            result = execute_c_docker_safe(code_file_path, input_file_path, output_file_path, temp_path, unique)
         elif language == "py":
-            result = execute_python_improved(code_file_path, input_file_path, output_file_path)
+            result = execute_python_docker_safe(code_file_path, input_file_path, output_file_path)
         else:
             return None
             
         return result
 
     except Exception as e:
-        print(f"Error in run_code: {str(e)}")
+        logger.error(f"Error in run_code: {str(e)}", exc_info=True)
         return None
     finally:
         # Cleanup temporary directory
@@ -600,27 +659,37 @@ def run_code(language, code, input_data):
             try:
                 shutil.rmtree(temp_dir)
             except Exception as cleanup_error:
-                print(f"Cleanup error: {cleanup_error}")
+                logger.warning(f"Cleanup error: {cleanup_error}")
                 pass
 
-def execute_python_improved(code_file_path, input_file_path, output_file_path):
-    """Execute Python code with better error handling"""
+def execute_python_docker_safe(code_file_path, input_file_path, output_file_path):
+    """Execute Python code with Docker-safe settings"""
     try:
+        # Check for Python in Docker environment
+        python_commands = [
+            '/usr/local/bin/python3',  # Docker Python location
+            '/usr/bin/python3',
+            'python3',
+            'python'
+        ]
+        
         python_cmd = None
-        for cmd in ['python3', 'python']:
+        for cmd in python_commands:
             try:
-                result = subprocess.run([cmd, '--version'], capture_output=True, timeout=5)
+                result = subprocess.run([cmd, '--version'], 
+                                      capture_output=True, 
+                                      timeout=5, 
+                                      text=True)
                 if result.returncode == 0:
                     python_cmd = cmd
+                    logger.debug(f"Found Python at: {cmd}")
                     break
-            except:
+            except (FileNotFoundError, subprocess.TimeoutExpired):
                 continue
         
         if not python_cmd:
-            print("No Python interpreter found")
+            logger.error("No Python interpreter found")
             return None
-        
-        print(f"Using Python command: {python_cmd}")
         
         try:
             with open(input_file_path, "r", encoding='utf-8') as input_file:
@@ -630,59 +699,79 @@ def execute_python_improved(code_file_path, input_file_path, output_file_path):
                         stdin=input_file,
                         stdout=output_file,
                         stderr=subprocess.PIPE,
-                        timeout=10,
+                        timeout=10,  # 10 second timeout
                         text=True,
-                        cwd=str(code_file_path.parent)
+                        cwd=str(code_file_path.parent),
+                        # Add resource limits for Docker
+                        preexec_fn=None if os.name == 'nt' else os.setsid
                     )
                     
-                    print(f"Python process return code: {result.returncode}")
+                    logger.debug(f"Python process return code: {result.returncode}")
                     if result.stderr:
-                        print(f"Python stderr: {result.stderr}")
+                        logger.debug(f"Python stderr: {result.stderr}")
                     
                     if result.returncode != 0:
-                        print(f"Python runtime error: {result.stderr}")
+                        logger.error(f"Python runtime error: {result.stderr}")
                         return None
 
             # Read output
-            with open(output_file_path, "r", encoding='utf-8') as output_file:
-                output = output_file.read()
-                print(f"Python execution successful, output: '{output}' (length: {len(output)})")
-                return output
+            try:
+                with open(output_file_path, "r", encoding='utf-8') as output_file:
+                    output = output_file.read()
+                    logger.debug(f"Python execution successful, output length: {len(output)}")
+                    return output
+            except FileNotFoundError:
+                logger.error("Output file not created")
+                return None
                 
         except subprocess.TimeoutExpired:
-            print("Python execution timed out")
+            logger.error("Python execution timed out")
             return None
             
     except Exception as e:
-        print(f"Python execution error: {str(e)}")
-        import traceback
-        traceback.print_exc()
+        logger.error(f"Python execution error: {str(e)}", exc_info=True)
         return None
 
-def execute_cpp_improved(code_file_path, input_file_path, output_file_path, temp_path, unique):
-    """Execute C++ code with improved error handling"""
+def execute_cpp_docker_safe(code_file_path, input_file_path, output_file_path, temp_path, unique):
+    """Execute C++ code with Docker-safe compiler paths"""
     try:
         executable_path = temp_path / unique
         
-        try:
-            subprocess.run(["g++", "--version"], capture_output=True, timeout=5)
-        except FileNotFoundError:
-            print("g++ compiler not found")
+        # Check for g++ in Docker environment
+        gcc_commands = ['/usr/bin/g++', 'g++']
+        gcc_cmd = None
+        
+        for cmd in gcc_commands:
+            try:
+                result = subprocess.run([cmd, '--version'], 
+                                      capture_output=True, 
+                                      timeout=5, 
+                                      text=True)
+                if result.returncode == 0:
+                    gcc_cmd = cmd
+                    logger.debug(f"Found g++ at: {cmd}")
+                    break
+            except (FileNotFoundError, subprocess.TimeoutExpired):
+                continue
+        
+        if not gcc_cmd:
+            logger.error("g++ compiler not found")
             return None
         
         # Compile with g++
         compile_result = subprocess.run(
-            ["g++", "-o", str(executable_path), str(code_file_path), "-std=c++17"],
+            [gcc_cmd, "-o", str(executable_path), str(code_file_path), 
+             "-std=c++17", "-O2", "-Wall"],
             capture_output=True,
             timeout=15,
             text=True
         )
         
         if compile_result.returncode != 0:
-            print(f"C++ compilation error: {compile_result.stderr}")
+            logger.error(f"C++ compilation error: {compile_result.stderr}")
             return None
 
-        # Execute
+        # Execute with resource limits
         with open(input_file_path, "r", encoding='utf-8') as input_file:
             with open(output_file_path, "w", encoding='utf-8') as output_file:
                 result = subprocess.run(
@@ -691,38 +780,59 @@ def execute_cpp_improved(code_file_path, input_file_path, output_file_path, temp
                     stdout=output_file,
                     stderr=subprocess.PIPE,
                     timeout=10,
-                    text=True
+                    text=True,
+                    preexec_fn=None if os.name == 'nt' else os.setsid
                 )
                 
                 if result.returncode != 0:
-                    print(f"C++ runtime error: {result.stderr}")
+                    logger.error(f"C++ runtime error: {result.stderr}")
                     return None
 
         # Read output
-        with open(output_file_path, "r", encoding='utf-8') as output_file:
-            return output_file.read()
+        try:
+            with open(output_file_path, "r", encoding='utf-8') as output_file:
+                return output_file.read()
+        except FileNotFoundError:
+            logger.error("C++ output file not created")
+            return None
             
     except subprocess.TimeoutExpired:
-        print("C++ execution timed out")
+        logger.error("C++ execution timed out")
         return None
     except Exception as e:
-        print(f"C++ execution error: {str(e)}")
+        logger.error(f"C++ execution error: {str(e)}", exc_info=True)
         return None
 
-def execute_c_improved(code_file_path, input_file_path, output_file_path, temp_path, unique):
-    """Execute C code with improved error handling"""
+def execute_c_docker_safe(code_file_path, input_file_path, output_file_path, temp_path, unique):
+    """Execute C code with Docker-safe compiler paths"""
     try:
         executable_path = temp_path / unique
         
-        try:
-            subprocess.run(["gcc", "--version"], capture_output=True, timeout=5)
-        except FileNotFoundError:
-            print("gcc compiler not found")
+        # Check for gcc in Docker environment
+        gcc_commands = ['/usr/bin/gcc', 'gcc']
+        gcc_cmd = None
+        
+        for cmd in gcc_commands:
+            try:
+                result = subprocess.run([cmd, '--version'], 
+                                      capture_output=True, 
+                                      timeout=5, 
+                                      text=True)
+                if result.returncode == 0:
+                    gcc_cmd = cmd
+                    logger.debug(f"Found gcc at: {cmd}")
+                    break
+            except (FileNotFoundError, subprocess.TimeoutExpired):
+                continue
+        
+        if not gcc_cmd:
+            logger.error("gcc compiler not found")
             return None
         
         # Compile with gcc
         compile_result = subprocess.run(
-            ["gcc", "-o", str(executable_path), str(code_file_path), "-std=c99"],
+            [gcc_cmd, "-o", str(executable_path), str(code_file_path), 
+             "-std=c99", "-O2", "-Wall"],
             capture_output=True,
             timeout=15,
             text=True
@@ -738,23 +848,28 @@ def execute_c_improved(code_file_path, input_file_path, output_file_path, temp_p
                         stdout=output_file,
                         stderr=subprocess.PIPE,
                         timeout=10,
-                        text=True
+                        text=True,
+                        preexec_fn=None if os.name == 'nt' else os.setsid
                     )
                     
                     if result.returncode != 0:
-                        print(f"C runtime error: {result.stderr}")
+                        logger.error(f"C runtime error: {result.stderr}")
                         return None
 
             # Read output
-            with open(output_file_path, "r", encoding='utf-8') as output_file:
-                return output_file.read()
+            try:
+                with open(output_file_path, "r", encoding='utf-8') as output_file:
+                    return output_file.read()
+            except FileNotFoundError:
+                logger.error("C output file not created")
+                return None
         else:
-            print(f"C compilation error: {compile_result.stderr}")
+            logger.error(f"C compilation error: {compile_result.stderr}")
             return None
             
     except subprocess.TimeoutExpired:
-        print("C execution timed out")
+        logger.error("C execution timed out")
         return None
     except Exception as e:
-        print(f"C execution error: {str(e)}")
+        logger.error(f"C execution error: {str(e)}", exc_info=True)
         return None

@@ -30,3 +30,4 @@ INFO 2025-08-04 20:03:40,942 basehttp 20028 26480 "GET /problem/SUM2NUM/ HTTP/1.
 INFO 2025-08-04 20:03:49,351 basehttp 20028 26480 "GET /compiler/ai-review/36/ HTTP/1.1" 200 2651
 INFO 2025-08-07 21:50:33,513 autoreload 1176 14880 Watching for file changes with StatReloader
 INFO 2025-08-07 21:51:03,404 autoreload 7812 12076 Watching for file changes with StatReloader
+WARNING 2025-08-09 04:10:57,802 log 10 130507419335552 Not Found: /favicon.ico
