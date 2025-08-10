@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link
+      href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css"
+      rel="stylesheet"
+    />
+    <title>Login Form</title>
+    <style>
+      body {
+        background: linear-gradient(135deg, #e0eafc 0%, #cfdef3 100%);
+        min-height: 100vh;
+        font-family: 'Segoe UI', 'Roboto', Arial, sans-serif;
+      }
+      .card {
+        border: none;
+        border-radius: 18px;
+        background: #fff;
+        box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.15);
+        transition: box-shadow 0.3s;
+      }
+      .card:hover {
+        box-shadow: 0 16px 40px 0 rgba(31, 38, 135, 0.22);
+      }
+      h1 span {
+        font-weight: 700;
+        letter-spacing: 2px;
+        font-size: 2.5rem;
+      }
+      h3 {
+        font-weight: 600;
+        color: #333;
+        margin-bottom: 1rem;
+      }
+      .form-group label {
+        font-weight: 500;
+        color: #555;
+      }
+      .form-control {
+        border-radius: 8px;
+        border: 1px solid #d1d9e6;
+        padding: 0.75rem 1rem;
+        font-size: 1rem;
+        background: #f7fafd;
+        transition: border-color 0.2s;
+      }
+      .form-control:focus {
+        border-color: #4e9af1;
+        box-shadow: 0 0 0 2px #e3f0fc;
+        background: #fff;
+      }
+      .btn-primary {
+        background: linear-gradient(90deg, #4e9af1 0%, #38e4ae 100%);
+        border: none;
+        border-radius: 8px;
+        font-weight: 600;
+        padding: 0.6rem 2rem;
+        transition: background 0.2s, box-shadow 0.2s;
+        box-shadow: 0 2px 8px rgba(78, 154, 241, 0.15);
+      }
+      .btn-primary:hover, .btn-primary:focus {
+        background: linear-gradient(90deg, #38e4ae 0%, #4e9af1 100%);
+        box-shadow: 0 4px 16px rgba(56, 228, 174, 0.18);
+      }
+      .alert-primary {
+        background: linear-gradient(90deg, #e3f0fc 0%, #e0f7ef 100%);
+        color: #31708f;
+        border: none;
+        border-radius: 8px;
+        font-weight: 500;
+      }
+      a {
+        color: #4e9af1;
+        text-decoration: none;
+        font-weight: 500;
+        transition: color 0.2s;
+      }
+      a:hover {
+        color: #38e4ae;
+        text-decoration: underline;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container mt-5">
+      <form
+        class="col-6 mx-auto card p-3 shadow-lg"
+        method="post"
+        enctype="multipart/form-data"
+      >
+        {% csrf_token %}
+        <h1 style="text-align: center">
+          <span style="color: green">Mysite</span>
+        </h1>
+        <h3>Login</h3>
+        <hr />
+        {% if messages %}
+        <div class="alert alert-primary" role="alert">
+          {% for message in messages %} {{ message }} {% endfor %}
+        </div>
+        {% endif %}
+        <div class="form-group">
+          <label for="exampleInputEmail1">Username</label>
+          <input
+            type="text"
+            class="form-control"
+            name="username"
+            id="exampleInputEmail1"
+            aria-describedby="emailHelp"
+            placeholder="Enter username"
+            required
+          />
+        </div>
+        <div class="form-group">
+          <label for="exampleInputPassword1">Password</label>
+          <input
+            type="password"
+            class="form-control"
+            name="password"
+            id="exampleInputPassword1"
+            placeholder="Password"
+            required
+          />
+        </div>
+        <p>Don't have an account? <a href="{% url 'authentication:register-user' %}">Register</a></p>
+        <button type="submit" class="btn btn-primary">Login</button>
+      </form>
+    </div>
+  </body>
+</html>

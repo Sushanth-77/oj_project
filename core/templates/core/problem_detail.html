@@ -1,0 +1,692 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ problem.name }} - Online Judge</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/codemirror.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/theme/monokai.min.css" rel="stylesheet">
+    <style>
+        :root {
+            --primary-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            --success-color: #28a745;
+            --warning-color: #ffc107;
+            --danger-color: #dc3545;
+        }
+        
+        body {
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            min-height: 100vh;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        .navbar {
+            background: var(--primary-gradient);
+            box-shadow: 0 2px 20px rgba(0,0,0,0.1);
+        }
+        
+        .problem-card {
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            border: none;
+        }
+        
+        .difficulty-E { 
+            background: linear-gradient(45deg, #28a745, #20c997);
+            color: white;
+            padding: 0.3rem 0.8rem;
+            border-radius: 20px;
+            font-weight: 600;
+            font-size: 0.85rem;
+        }
+        
+        .difficulty-M { 
+            background: linear-gradient(45deg, #ffc107, #fd7e14);
+            color: white;
+            padding: 0.3rem 0.8rem;
+            border-radius: 20px;
+            font-weight: 600;
+            font-size: 0.85rem;
+        }
+        
+        .difficulty-H { 
+            background: linear-gradient(45deg, #dc3545, #e74c3c);
+            color: white;
+            padding: 0.3rem 0.8rem;
+            border-radius: 20px;
+            font-weight: 600;
+            font-size: 0.85rem;
+        }
+
+        .verdict-AC { color: var(--success-color); font-weight: bold; }
+        .verdict-WA { color: var(--danger-color); font-weight: bold; }
+        .verdict-TLE { color: #fd7e14; font-weight: bold; }
+        .verdict-RE { color: var(--danger-color); font-weight: bold; }
+        .verdict-CE { color: #6c757d; font-weight: bold; }
+
+        .CodeMirror {
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            font-size: 14px;
+            height: 400px;
+        }
+
+        .btn-modern {
+            background: var(--primary-gradient);
+            border: none;
+            border-radius: 25px;
+            padding: 0.6rem 1.5rem;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+        }
+
+        .btn-modern:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        .language-select {
+            border-radius: 10px;
+            border: 1px solid #ddd;
+            padding: 0.5rem;
+        }
+
+        .CodeMirror.error {
+            border-color: #dc3545;
+            box-shadow: 0 0 0 0.2rem rgba(220, 53, 69, 0.25);
+        }
+
+        .error-message {
+            color: #dc3545;
+            font-size: 0.875rem;
+            margin-top: 0.25rem;
+        }
+
+        .markdown-content {
+            line-height: 1.6;
+            font-size: 14px;
+        }
+        
+        .markdown-content h1, .markdown-content h2, .markdown-content h3 {
+            color: #333;
+            margin-top: 1.5rem;
+            margin-bottom: 0.5rem;
+        }
+        
+        .markdown-content code {
+            background-color: #f8f9fa;
+            padding: 0.2rem 0.4rem;
+            border-radius: 3px;
+            font-family: 'Courier New', monospace;
+        }
+        
+        .markdown-content pre {
+            background-color: #f8f9fa;
+            padding: 1rem;
+            border-radius: 5px;
+            border-left: 4px solid #007bff;
+            overflow-x: auto;
+        }
+        
+        .markdown-content ul, .markdown-content ol {
+            padding-left: 1.5rem;
+        }
+        
+        .markdown-content li {
+            margin-bottom: 0.5rem;
+        }
+    </style>
+</head>
+<body>
+    <!-- Navigation Bar -->
+    <nav class="navbar navbar-expand-lg navbar-dark">
+        <div class="container">
+            <a class="navbar-brand" href="{% url 'core:problems_list' %}">
+                <i class="fas fa-code"></i> CodeJudge
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav me-auto">
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'core:problems_list' %}">
+                            <i class="fas fa-list"></i> Problems
+                        </a>
+                    </li>
+                    {% if user.is_authenticated %}
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'core:submissions_list' %}">
+                            <i class="fas fa-history"></i> My Submissions
+                        </a>
+                    </li>
+                    {% endif %}
+                </ul>
+                <ul class="navbar-nav">
+                    {% if user.is_authenticated %}
+                        <li class="nav-item dropdown">
+                            <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" data-bs-toggle="dropdown">
+                                <i class="fas fa-user"></i> {{ user.username }}
+                            </a>
+                            <ul class="dropdown-menu">
+                                <li><a class="dropdown-item" href="{% url 'core:submissions_list' %}">
+                                    <i class="fas fa-history"></i> My Submissions
+                                </a></li>
+                                <li><hr class="dropdown-divider"></li>
+                                <li><a class="dropdown-item" href="{% url 'authentication:logout-user' %}">
+                                    <i class="fas fa-sign-out-alt"></i> Logout
+                                </a></li>
+                            </ul>
+                        </li>
+                    {% else %}
+                        <li class="nav-item">
+                            <a class="nav-link" href="{% url 'authentication:login-user' %}">
+                                <i class="fas fa-sign-in-alt"></i> Login
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="{% url 'authentication:register-user' %}">
+                                <i class="fas fa-user-plus"></i> Register
+                            </a>
+                        </li>
+                    {% endif %}
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mt-4">
+        <div class="row">
+            <!-- Problem Statement Column -->
+            <div class="col-lg-6">
+                <div class="card problem-card mb-4">
+                    <div class="card-header bg-transparent border-0 p-4">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <h2 class="mb-0">{{ problem.name }}</h2>
+                            <span class="difficulty-{{ problem.difficulty }}">
+                                {% if problem.difficulty == 'E' %}
+                                    <i class="fas fa-star"></i> Easy
+                                {% elif problem.difficulty == 'M' %}
+                                    <i class="fas fa-star-half-alt"></i> Medium
+                                {% else %}
+                                    <i class="fas fa-fire"></i> Hard
+                                {% endif %}
+                            </span>
+                        </div>
+                        <p class="text-muted mb-0">{{ problem.short_code }}</p>
+                    </div>
+                    <div class="card-body p-4">
+                        <h5><i class="fas fa-file-alt"></i> Problem Statement</h5>
+                        <div class="problem-statement">
+                            {{ problem.statement|linebreaksbr }}
+                        </div>
+                        
+                        {% if problem.testcases.all %}
+                        <h5 class="mt-4"><i class="fas fa-vial"></i> Sample Test Cases</h5>
+                        {% for testcase in problem.testcases.all|slice:":2" %}
+                        <div class="testcase-example mt-3">
+                            <h6>Example {{ forloop.counter }}:</h6>
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <strong>Input:</strong>
+                                    <pre class="bg-light p-2 rounded">{{ testcase.input }}</pre>
+                                </div>
+                                <div class="col-md-6">
+                                    <strong>Output:</strong>
+                                    <pre class="bg-light p-2 rounded">{{ testcase.output }}</pre>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Code Editor Column -->
+            <div class="col-lg-6">
+                {% if user.is_authenticated %}
+                <div class="card problem-card mb-4">
+                    <div class="card-header bg-transparent border-0 p-4">
+                        <h5><i class="fas fa-code"></i> Submit Solution</h5>
+                    </div>
+                    <div class="card-body p-4">
+                        <!-- Messages -->
+                        {% if messages %}
+                            {% for message in messages %}
+                                <div class="alert alert-{{ message.tags }} alert-dismissible fade show">
+                                    {{ message }}
+                                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                                </div>
+                            {% endfor %}
+                        {% endif %}
+
+                        <form id="submissionForm" method="post">
+                            {% csrf_token %}
+                            <div class="mb-3">
+                                <label for="language" class="form-label">Language:</label>
+                                <select name="language" id="language" class="form-select language-select">
+                                    <option value="py">Python 3</option>
+                                    <option value="cpp">C++</option>
+                                    <option value="c">C</option>
+                                </select>
+                            </div>
+                            <div class="mb-3">
+                                <label for="code" class="form-label">Your Code:</label>
+                                <textarea name="code" id="code" class="form-control" rows="20" placeholder="Write your solution here..."></textarea>
+                                <div id="codeError" class="error-message" style="display: none;">
+                                    Please write some code before submitting.
+                                </div>
+                            </div>
+                            <button type="submit" class="btn btn-modern">
+                                <i class="fas fa-paper-plane"></i> Submit Solution
+                            </button>
+                        </form>
+
+                        <!-- AI Review Section - Show if user has submissions -->
+                        {% if user_submissions %}
+                        <div id="aiReviewSection" class="mt-3">
+                            <button type="button" id="aiReviewBtn" class="btn btn-outline-info">
+                                <i class="fas fa-robot"></i> Get AI Code Review
+                            </button>
+                            <small class="text-muted d-block mt-1">Get optimization suggestions and code analysis</small>
+                        </div>
+                        {% else %}
+                        <div id="aiReviewSection" style="display: none;" class="mt-3">
+                            <button type="button" id="aiReviewBtn" class="btn btn-outline-info">
+                                <i class="fas fa-robot"></i> Get AI Code Review
+                            </button>
+                            <small class="text-muted d-block mt-1">Get optimization suggestions and code analysis</small>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+                {% else %}
+                <div class="card problem-card">
+                    <div class="card-body text-center p-5">
+                        <i class="fas fa-lock fa-3x text-muted mb-3"></i>
+                        <h5>Login Required</h5>
+                        <p class="text-muted">Please login to submit your solution.</p>
+                        <a href="{% url 'authentication:login-user' %}" class="btn btn-modern">
+                            <i class="fas fa-sign-in-alt"></i> Login
+                        </a>
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- User Submissions -->
+        {% if user.is_authenticated and user_submissions %}
+        <div class="row mt-4">
+            <div class="col-12">
+                <div class="card problem-card">
+                    <div class="card-header bg-transparent border-0 p-4">
+                        <h5><i class="fas fa-history"></i> Your Recent Submissions</h5>
+                    </div>
+                    <div class="card-body p-4">
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>Verdict</th>
+                                        <th>Submitted</th>
+                                        <th>Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for submission in user_submissions %}
+                                    <tr>
+                                        <td>
+                                            <span class="verdict-{{ submission.verdict }}">
+                                                {{ submission.get_verdict_display }}
+                                            </span>
+                                        </td>
+                                        <td>{{ submission.submitted|date:"M d, Y H:i" }}</td>
+                                        <td>
+                                            <button class="btn btn-sm btn-outline-primary" 
+                                                    onclick="showCode('{{ submission.code_text|escapejs }}')">
+                                                View Code
+                                            </button>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Code Modal -->
+    <div class="modal fade" id="codeModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Submission Code</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <pre id="codeContent" class="bg-light p-3 rounded" style="max-height: 400px; overflow-y: auto;"></pre>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- AI Review Modal -->
+    <div class="modal fade" id="aiReviewModal" tabindex="-1">
+        <div class="modal-dialog modal-xl">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">
+                        <i class="fas fa-robot text-info"></i> AI Code Review
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="aiReviewLoading" class="text-center py-4">
+                        <div class="spinner-border text-info" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                        <p class="mt-2">Analyzing your code...</p>
+                    </div>
+                    <div id="aiReviewContent" style="display: none;">
+                        <div id="aiReviewText" class="markdown-content"></div>
+                    </div>
+                    <div id="aiReviewError" style="display: none;" class="alert alert-danger">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        <span id="aiReviewErrorText"></span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/codemirror.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/mode/python/python.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/mode/clike/clike.min.js"></script>
+    
+    <!-- User Submissions Data for JavaScript -->
+    {% if user.is_authenticated and user_submissions %}
+    <script id="user-submissions-data" type="application/json">
+    [{% for submission in user_submissions %}
+      {
+        "id": {{ submission.id }},
+        "verdict": "{{ submission.verdict }}",
+        "submitted": "{{ submission.submitted|date:'c' }}"
+      }{% if not forloop.last %},{% endif %}
+    {% endfor %}]
+    </script>
+    {% endif %}
+    
+    <script>
+        // Global variables
+        let editor;
+        
+        // Wait for DOM to be fully loaded
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeCodeMirror();
+            setupFormValidation();
+            setupAIReview();
+        });
+
+        function initializeCodeMirror() {
+            const codeTextarea = document.getElementById('code');
+            if (!codeTextarea) return;
+
+            editor = CodeMirror.fromTextArea(codeTextarea, {
+                lineNumbers: true,
+                theme: 'monokai',
+                mode: 'python',
+                indentUnit: 4,
+                lineWrapping: true,
+                matchBrackets: true,
+                autoCloseBrackets: true
+            });
+
+            // Setup language change handler
+            const languageSelect = document.getElementById('language');
+            if (languageSelect) {
+                languageSelect.addEventListener('change', handleLanguageChange);
+            }
+
+            // Setup editor change handler
+            editor.on('change', handleEditorChange);
+        }
+
+        function handleLanguageChange() {
+            const language = document.getElementById('language').value;
+            let mode;
+            switch(language) {
+                case 'py': 
+                    mode = 'python'; 
+                    break;
+                case 'cpp': 
+                    mode = 'text/x-c++src'; 
+                    break;
+                case 'c': 
+                    mode = 'text/x-csrc'; 
+                    break;
+                default: 
+                    mode = 'python';
+            }
+            if (editor) {
+                editor.setOption('mode', mode);
+            }
+        }
+
+        function handleEditorChange() {
+            if (!editor) return;
+            
+            const codeTextarea = document.getElementById('code');
+            if (codeTextarea) {
+                codeTextarea.value = editor.getValue();
+            }
+            
+            // Clear error state when user starts typing
+            const codeError = document.getElementById('codeError');
+            const codeMirrorElement = document.querySelector('.CodeMirror');
+            
+            if (editor.getValue().trim()) {
+                if (codeError) codeError.style.display = 'none';
+                if (codeMirrorElement) codeMirrorElement.classList.remove('error');
+            }
+        }
+
+        function setupFormValidation() {
+            const submissionForm = document.getElementById('submissionForm');
+            if (!submissionForm) return;
+
+            submissionForm.addEventListener('submit', function(e) {
+                if (!editor) return true;
+                
+                const code = editor.getValue().trim();
+                const codeError = document.getElementById('codeError');
+                const codeMirrorElement = document.querySelector('.CodeMirror');
+
+                // Reset previous error states
+                if (codeError) codeError.style.display = 'none';
+                if (codeMirrorElement) codeMirrorElement.classList.remove('error');
+
+                // Check if code is empty
+                if (!code) {
+                    e.preventDefault();
+                    
+                    if (codeError) codeError.style.display = 'block';
+                    if (codeMirrorElement) {
+                        codeMirrorElement.classList.add('error');
+                        codeMirrorElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    }
+                    
+                    editor.focus();
+                    return false;
+                }
+
+                // Update the hidden textarea with CodeMirror content
+                const codeTextarea = document.getElementById('code');
+                if (codeTextarea) {
+                    codeTextarea.value = code;
+                }
+                
+                return true;
+            });
+        }
+
+        function setupAIReview() {
+            const aiReviewBtn = document.getElementById('aiReviewBtn');
+            if (!aiReviewBtn) return;
+
+            aiReviewBtn.addEventListener('click', handleAIReviewClick);
+        }
+
+        function handleAIReviewClick() {
+            const modalElement = document.getElementById('aiReviewModal');
+            if (!modalElement) return;
+
+            const modal = new bootstrap.Modal(modalElement);
+            modal.show();
+            
+            // Show loading state
+            showAIReviewLoading();
+            
+            // Get submission ID safely
+            const submissionId = getSubmissionId();
+            
+            if (!submissionId) {
+                showAiReviewError('No recent submission found. Please submit a solution first.');
+                return;
+            }
+            
+            // Make AJAX request
+            makeAIReviewRequest(submissionId);
+        }
+
+        function showAIReviewLoading() {
+            const loadingEl = document.getElementById('aiReviewLoading');
+            const contentEl = document.getElementById('aiReviewContent');
+            const errorEl = document.getElementById('aiReviewError');
+            
+            if (loadingEl) loadingEl.style.display = 'block';
+            if (contentEl) contentEl.style.display = 'none';
+            if (errorEl) errorEl.style.display = 'none';
+        }
+
+        function getSubmissionId() {
+            // Try to get from template variables (this would be populated by Django)
+            const userSubmissionsScript = document.getElementById('user-submissions-data');
+            if (userSubmissionsScript) {
+                try {
+                    const data = JSON.parse(userSubmissionsScript.textContent);
+                    if (data && data.length > 0) {
+                        return data[0].id;
+                    }
+                } catch (e) {
+                    console.error('Error parsing submission data:', e);
+                }
+            }
+            
+            return null;
+        }
+
+        function makeAIReviewRequest(submissionId) {
+            const csrfToken = getCSRFToken();
+            
+            fetch(`{% url 'compiler:ai_review_submission' 0 %}`.replace('0', submissionId), {
+                method: 'GET',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-CSRFToken': csrfToken
+                }
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                hideAIReviewLoading();
+                
+                if (data.success) {
+                    showAIReviewContent(data.review);
+                } else {
+                    showAiReviewError(data.error || 'Failed to get AI review');
+                }
+            })
+            .catch(error => {
+                hideAIReviewLoading();
+                showAiReviewError('Network error. Please check your connection and try again.');
+                console.error('AI Review Error:', error);
+            });
+        }
+
+        function getCSRFToken() {
+            const csrfElement = document.querySelector('[name=csrfmiddlewaretoken]');
+            return csrfElement ? csrfElement.value : '';
+        }
+
+        function hideAIReviewLoading() {
+            const loadingEl = document.getElementById('aiReviewLoading');
+            if (loadingEl) loadingEl.style.display = 'none';
+        }
+
+        function showAIReviewContent(review) {
+            const reviewTextEl = document.getElementById('aiReviewText');
+            const contentEl = document.getElementById('aiReviewContent');
+            
+            if (reviewTextEl) {
+                reviewTextEl.innerHTML = formatAiReview(review);
+            }
+            if (contentEl) {
+                contentEl.style.display = 'block';
+            }
+        }
+
+        function showCode(code) {
+            const codeContent = document.getElementById('codeContent');
+            const codeModal = document.getElementById('codeModal');
+            if (codeContent && codeModal) {
+                codeContent.textContent = code;
+                const modal = new bootstrap.Modal(codeModal);
+                modal.show();
+            }
+        }
+
+        function showAiReviewError(message) {
+            const errorTextEl = document.getElementById('aiReviewErrorText');
+            const errorEl = document.getElementById('aiReviewError');
+            if (errorTextEl && errorEl) {
+                errorTextEl.textContent = message;
+                errorEl.style.display = 'block';
+            }
+        }
+
+        function formatAiReview(text) {
+            if (!text) return '';
+            
+            // Basic markdown-like formatting
+            return text
+                .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                .replace(/\*(.*?)\*/g, '<em>$1</em>')
+                .replace(/`(.*?)`/g, '<code>$1</code>')
+                .replace(/^### (.*$)/gm, '<h3>$1</h3>')
+                .replace(/^## (.*$)/gm, '<h2>$1</h2>')
+                .replace(/^# (.*$)/gm, '<h1>$1</h1>')
+                .replace(/\n\n/g, '</p><p>')
+                .replace(/\n/g, '<br>')
+                .replace(/^(.*)$/, '<p>$1</p>')
+                .replace(/```([\s\S]*?)```/g, '<pre><code>$1</code></pre>');
+        }
+    </script>
+</body>
+</html>
