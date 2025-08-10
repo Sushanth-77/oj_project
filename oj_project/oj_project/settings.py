@@ -143,18 +143,25 @@ USE_TZ = True
 
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
+# Static files (CSS, JavaScript, Images)
+# https://docs.djangoproject.com/en/5.2/howto/static-files/
 STATIC_URL = '/static/'
-# FIX: Use os.getenv for consistency
-STATIC_ROOT = os.getenv('STATIC_ROOT', BASE_DIR / 'staticfiles')
 
-STATICFILES_DIRS = [
-    BASE_DIR / 'static',
-]
+# FIX: Conditional static files configuration
+STATIC_ROOT = os.getenv('STATIC_ROOT', str(BASE_DIR / 'staticfiles'))
+
+# Only set STATICFILES_DIRS if we're not using the same directory as STATIC_ROOT
+# and if STATIC_ROOT is not set in environment (development mode)
+if not os.getenv('STATIC_ROOT'):
+    # Development mode - Django looks for static files here
+    STATICFILES_DIRS = [
+        BASE_DIR / 'static',
+    ]
+# In production/Docker, don't set STATICFILES_DIRS when STATIC_ROOT is set
 
 # Media files
 MEDIA_URL = '/media/'
-# FIX: Use os.getenv for consistency
-MEDIA_ROOT = os.getenv('MEDIA_ROOT', BASE_DIR / 'media')
+MEDIA_ROOT = os.getenv('MEDIA_ROOT', str(BASE_DIR / 'media'))
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field

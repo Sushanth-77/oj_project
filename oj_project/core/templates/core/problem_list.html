@@ -1,0 +1,564 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Problems List - Online Judge</title>
+    <!-- Bootstrap CSS CDN -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Font Awesome for icons -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        :root {
+            --primary-color: #2c3e50;
+            --secondary-color: #34495e;
+            --success-color: #27ae60;
+            --warning-color: #f39c12;
+            --danger-color: #e74c3c;
+            --light-bg: #ecf0f1;
+            --card-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        /* Custom Navbar Styles */
+        .custom-navbar {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            box-shadow: 0 2px 20px rgba(0, 0, 0, 0.1);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .navbar-brand {
+            font-weight: 700;
+            font-size: 1.5rem;
+            color: var(--primary-color) !important;
+        }
+
+        .navbar-brand i {
+            margin-right: 10px;
+            color: var(--success-color);
+        }
+
+        .nav-link {
+            font-weight: 500;
+            color: var(--secondary-color) !important;
+            transition: all 0.3s ease;
+        }
+
+        .nav-link:hover {
+            color: var(--success-color) !important;
+            transform: translateY(-1px);
+        }
+
+        .nav-link.active {
+            color: var(--success-color) !important;
+        }
+
+        /* Progress Tracker Styles */
+        .progress-section {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 30px;
+            margin: 30px 0;
+            box-shadow: var(--card-shadow);
+        }
+
+        .progress-title {
+            color: var(--primary-color);
+            font-weight: 700;
+            margin-bottom: 25px;
+            text-align: center;
+        }
+
+        .difficulty-card {
+            background: white;
+            border-radius: 15px;
+            padding: 25px;
+            margin: 10px;
+            box-shadow: var(--card-shadow);
+            transition: all 0.3s ease;
+            border-left: 5px solid;
+        }
+
+        .difficulty-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+        }
+
+        .difficulty-easy {
+            border-left-color: var(--success-color);
+        }
+
+        .difficulty-medium {
+            border-left-color: var(--warning-color);
+        }
+
+        .difficulty-hard {
+            border-left-color: var(--danger-color);
+        }
+
+        .difficulty-icon {
+            font-size: 2.5rem;
+            margin-bottom: 15px;
+        }
+
+        .easy-icon { color: var(--success-color); }
+        .medium-icon { color: var(--warning-color); }
+        .hard-icon { color: var(--danger-color); }
+
+        .difficulty-stats {
+            font-size: 1.1rem;
+            font-weight: 600;
+            margin-bottom: 10px;
+        }
+
+        .progress-bar-custom {
+            height: 12px;
+            border-radius: 10px;
+            background-color: #e9ecef;
+            overflow: hidden;
+        }
+
+        .progress-fill-easy {
+            background: linear-gradient(90deg, var(--success-color), #2ecc71);
+            height: 100%;
+            transition: width 1.5s ease-in-out;
+        }
+
+        .progress-fill-medium {
+            background: linear-gradient(90deg, var(--warning-color), #f1c40f);
+            height: 100%;
+            transition: width 1.5s ease-in-out;
+        }
+
+        .progress-fill-hard {
+            background: linear-gradient(90deg, var(--danger-color), #c0392b);
+            height: 100%;
+            transition: width 1.5s ease-in-out;
+        }
+
+        /* Problems Table Styles */
+        .problems-section {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: var(--card-shadow);
+        }
+
+        .section-title {
+            color: var(--primary-color);
+            font-weight: 700;
+            margin-bottom: 25px;
+            display: flex;
+            align-items: center;
+        }
+
+        .section-title i {
+            margin-right: 15px;
+            color: var(--success-color);
+        }
+
+        .table {
+            background: white;
+            border-radius: 15px;
+            overflow: hidden;
+            box-shadow: var(--card-shadow);
+        }
+
+        .table thead th {
+            background: var(--primary-color);
+            color: #fff;
+            font-weight: 600;
+            border: none;
+            padding: 20px 15px;
+        }
+
+        .table tbody td {
+            padding: 18px 15px;
+            border: none;
+            border-bottom: 1px solid #eee;
+        }
+
+        .difficulty-badge {
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+
+        .badge-easy {
+            background: rgba(39, 174, 96, 0.1);
+            color: var(--success-color);
+        }
+
+        .badge-medium {
+            background: rgba(243, 156, 18, 0.1);
+            color: var(--warning-color);
+        }
+
+        .badge-hard {
+            background: rgba(231, 76, 60, 0.1);
+            color: var(--danger-color);
+        }
+
+                .problem-row {
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+ 
+        .solved-row {
+            background: linear-gradient(90deg, rgba(40, 167, 69, 0.05), rgba(255, 255, 255, 0.05));
+            border-left: 4px solid #28a745;
+        }
+ 
+        .problem-row:hover {
+            background: #f8f9fa !important;
+            transform: translateX(5px);
+        }
+
+        .problem-name {
+            font-weight: 600;
+            color: var(--primary-color);
+            text-decoration: none !important;
+        }
+
+        .problem-name:hover {
+            color: var(--success-color);
+        }
+
+        /* User Profile Dropdown */
+        .user-profile {
+            display: flex;
+            align-items: center;
+        }
+
+        .user-avatar {
+            width: 35px;
+            height: 35px;
+            border-radius: 50%;
+            background: var(--success-color);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: 600;
+            margin-right: 10px;
+        }
+
+        /* Messages styling */
+        .alert {
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
+
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            .difficulty-card {
+                margin: 5px 0;
+            }
+            
+            .progress-section {
+                padding: 20px;
+                margin: 20px 0;
+            }
+            
+            .problems-section {
+                padding: 20px;
+            }
+        }
+
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .animate-fade-up {
+            animation: fadeInUp 0.6s ease-out;
+        }
+    </style>
+</head>
+
+<body>
+    <!-- Navigation Bar -->
+    <nav class="navbar navbar-expand-lg custom-navbar sticky-top">
+        <div class="container">
+            <a class="navbar-brand" href="{% url 'core:problems_list' %}">
+                <i class="fas fa-code"></i>CodeJudge
+            </a>
+            
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav me-auto">
+                    <li class="nav-item">
+                        <a class="nav-link active" href="{% url 'core:problems_list' %}">
+                            <i class="fas fa-list-alt me-2"></i>Problems
+                        </a>
+                    </li>
+                    {% if user.is_authenticated %}
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'core:submissions_list' %}">
+                            <i class="fas fa-history me-2"></i>My Submissions
+                        </a>
+                    </li>
+                    {% endif %}
+                </ul>
+                
+                <ul class="navbar-nav">
+                    {% if user.is_authenticated %}
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle user-profile" href="#" id="navbarDropdown" role="button" data-bs-toggle="dropdown">
+                            <div class="user-avatar">
+                                {{ user.username|first|upper }}
+                            </div>
+                            {{ user.username }}
+                        </a>
+                        <ul class="dropdown-menu">
+                            <li><a class="dropdown-item" href="{% url 'core:submissions_list' %}">
+                                <i class="fas fa-user me-2"></i>Profile
+                            </a></li>
+                            <li><a class="dropdown-item" href="{% url 'core:submissions_list' %}">
+                                <i class="fas fa-chart-line me-2"></i>Statistics
+                            </a></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item" href="{% url 'authentication:logout-user' %}">
+                                <i class="fas fa-sign-out-alt me-2"></i>Logout
+                            </a></li>
+                        </ul>
+                    </li>
+                    {% else %}
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'authentication:login-user' %}">
+                            <i class="fas fa-sign-in-alt me-2"></i>Login
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'authentication:register-user' %}">
+                            <i class="fas fa-user-plus me-2"></i>Register
+                        </a>
+                    </li>
+                    {% endif %}
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container">
+        <!-- Django Messages -->
+        {% if messages %}
+            {% for message in messages %}
+                <div class="alert alert-{{ message.tags|default:'info' }} alert-dismissible fade show" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+            {% endfor %}
+        {% endif %}
+
+        <!-- Progress Tracker Section -->
+        {% if user.is_authenticated %}
+        <div class="progress-section animate-fade-up">
+            <h3 class="progress-title">
+                <i class="fas fa-chart-pie me-3"></i>Your Progress
+            </h3>
+            <div class="row">
+                <div class="col-md-4">
+                    <div class="difficulty-card difficulty-easy text-center">
+                        <div class="difficulty-icon easy-icon">
+                            <i class="fas fa-seedling"></i>
+                        </div>
+                        <h5>Easy Problems</h5>
+                        <div class="difficulty-stats">
+                            <span id="easy-completed">{{ user_progress.easy_completed }}</span> / {{ easy_count }}
+                        </div>
+                        <div class="progress-bar-custom">
+                            <div class="progress-fill-easy" data-width="{% if easy_count > 0 %}{% widthratio user_progress.easy_completed easy_count 100 %}{% else %}0{% endif %}"></div>
+                        </div>
+                        <small class="text-muted mt-2 d-block">
+                            Complete Rate: 
+                            {% if easy_count > 0 %}
+                                {% widthratio user_progress.easy_completed easy_count 100 %}%
+                            {% else %}
+                                0%
+                            {% endif %}
+                        </small>
+                    </div>
+                </div>
+                
+                <div class="col-md-4">
+                    <div class="difficulty-card difficulty-medium text-center">
+                        <div class="difficulty-icon medium-icon">
+                            <i class="fas fa-mountain"></i>
+                        </div>
+                        <h5>Medium Problems</h5>
+                        <div class="difficulty-stats">
+                            <span id="medium-completed">{{ user_progress.medium_completed }}</span> / {{ medium_count }}
+                        </div>
+                        <div class="progress-bar-custom">
+                            <div class="progress-fill-medium" data-width="{% if medium_count > 0 %}{% widthratio user_progress.medium_completed medium_count 100 %}{% else %}0{% endif %}"></div>
+                        </div>
+                        <small class="text-muted mt-2 d-block">
+                            Complete Rate: 
+                            {% if medium_count > 0 %}
+                                {% widthratio user_progress.medium_completed medium_count 100 %}%
+                            {% else %}
+                                0%
+                            {% endif %}
+                        </small>
+                    </div>
+                </div>
+                
+                <div class="col-md-4">
+                    <div class="difficulty-card difficulty-hard text-center">
+                        <div class="difficulty-icon hard-icon">
+                            <i class="fas fa-fire"></i>
+                        </div>
+                        <h5>Hard Problems</h5>
+                        <div class="difficulty-stats">
+                            <span id="hard-completed">{{ user_progress.hard_completed }}</span> / {{ hard_count }}
+                        </div>
+                        <div class="progress-bar-custom">
+                            <div class="progress-fill-hard" data-width="{% if hard_count > 0 %}{% widthratio user_progress.hard_completed hard_count 100 %}{% else %}0{% endif %}"></div>
+                        </div>
+                        <small class="text-muted mt-2 d-block">
+                            Complete Rate: 
+                            {% if hard_count > 0 %}
+                                {% widthratio user_progress.hard_completed hard_count 100 %}%
+                            {% else %}
+                                0%
+                            {% endif %}
+                        </small>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Problems List Section -->
+        <div class="problems-section animate-fade-up">
+            <h2 class="section-title">
+                <i class="fas fa-code"></i>Problem List
+            </h2>
+            
+            <div class="table-responsive">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th style="width: 80px;">#</th>
+                            <th>Problem Name</th>
+                            <th style="width: 120px;">Difficulty</th>
+                            <th>Description</th>
+                            <th style="width: 100px;">Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for problem in problems %}
+                        <tr class="problem-row {% if problem.short_code in user_progress.solved_problems %}solved-row{% endif %}" data-url="{% url 'core:problem_detail' problem.short_code %}">
+                            <td class="text-muted">{{ forloop.counter }}</td>
+                            <td>
+                                <a href="{% url 'core:problem_detail' problem.short_code %}" class="problem-name">
+                                    {{ problem.name }}
+                                </a>
+                                <br>
+                                <small class="text-muted">{{ problem.short_code }}</small>
+                            </td>
+                            <td>
+                                {% if problem.difficulty == 'E' %}
+                                    <span class="difficulty-badge badge-easy">
+                                        <i class="fas fa-seedling me-1"></i>Easy
+                                    </span>
+                                {% elif problem.difficulty == 'M' %}
+                                    <span class="difficulty-badge badge-medium">
+                                        <i class="fas fa-mountain me-1"></i>Medium
+                                    </span>
+                                {% else %}
+                                    <span class="difficulty-badge badge-hard">
+                                        <i class="fas fa-fire me-1"></i>Hard
+                                    </span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <span class="text-muted">
+                                    {{ problem.statement|truncatewords:15 }}
+                                </span>
+                            </td>
+                            <td>
+                                {% if problem.short_code in user_progress.solved_problems %}
+                                    <span class="badge bg-success">
+                                        <i class="fas fa-check me-1"></i>Solved
+                                    </span>
+                                {% else %}
+                                    <span class="badge bg-light text-dark">
+                                        <i class="fas fa-clock me-1"></i>Unsolved
+                                    </span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="5" class="text-center text-muted py-5">
+                                <i class="fas fa-inbox fa-3x mb-3"></i>
+                                <h5>No problems found</h5>
+                                <p>Check back later for new problems!</p>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    
+        <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            // Click event for problem rows
+            document.querySelectorAll('.problem-row').forEach(function (row) {
+                row.addEventListener('click', function (e) {
+                    if (e.target.tagName.toLowerCase() !== 'a') {
+                        const url = this.getAttribute('data-url');
+                        if (url) {
+                            window.location.href = url;
+                        }
+                    }
+                });
+            });
+
+            // Set progress widths from data-width attributes
+            document.querySelectorAll('.progress-bar-custom > div[class^="progress-fill-"]').forEach(function (el) {
+                var width = el.getAttribute('data-width');
+                var num = parseFloat(width);
+                el.style.width = (isNaN(num) ? 0 : num) + '%';
+            });
+
+            // Hover effects for cards
+            document.querySelectorAll('.difficulty-card').forEach(function (card) {
+                card.addEventListener('mouseenter', function () {
+                    this.style.transform = 'translateY(-5px) scale(1.02)';
+                });
+                card.addEventListener('mouseleave', function () {
+                    this.style.transform = 'translateY(0) scale(1)';
+                });
+            });
+        });
+    </script>
+</body>
+
+</html>
