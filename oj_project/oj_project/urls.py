@@ -6,7 +6,7 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     
     # Authentication URLs
-    path('auth/', include('authentication.urls')),
+    path('home/', include('authentication.urls')),
     
     # Compiler/AI review URLs  
     path('compiler/', include('compiler.urls')),
