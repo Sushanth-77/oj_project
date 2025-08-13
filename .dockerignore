@@ -42,7 +42,6 @@ README.md
 ehthumbs.db
 Thumbs.db
 
-# Docker
-Dockerfile
+# Docker and other deployment files
 docker-compose.yml
-.dockerignore
+nginx.conf
