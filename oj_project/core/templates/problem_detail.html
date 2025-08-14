@@ -1,720 +1,749 @@
 {% load static %}
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{ problem.name }} - Online Judge</title>
+    <title>Problems List - Online Judge</title>
+    <!-- Bootstrap CSS CDN -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Font Awesome for icons -->
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/codemirror.min.css" rel="stylesheet">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/theme/monokai.min.css" rel="stylesheet">
     <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
         :root {
-            --primary-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            --success-color: #28a745;
-            --warning-color: #ffc107;
-            --danger-color: #dc3545;
+            --primary-color: #2563eb;
+            --secondary-color: #64748b;
+            --success-color: #10b981;
+            --warning-color: #f59e0b;
+            --danger-color: #ef4444;
+            --bg-color: #f8fafc;
+            --card-bg: #ffffff;
+            --border-color: #e2e8f0;
+            --text-primary: #0f172a;
+            --text-secondary: #64748b;
+            --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+            --shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px -1px rgba(0, 0, 0, 0.1);
+            --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1);
         }
-        
+
         body {
-            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
-            min-height: 100vh;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-color);
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            color: var(--text-primary);
+            line-height: 1.6;
         }
-        
-        .navbar {
-            background: var(--primary-gradient);
-            box-shadow: 0 2px 20px rgba(0,0,0,0.1);
+
+        /* Header Styles */
+        .header {
+            background: var(--card-bg);
+            border-bottom: 1px solid var(--border-color);
+            padding: 1rem 0;
+            position: sticky;
+            top: 0;
+            z-index: 100;
         }
-        
-        .problem-card {
-            background: white;
-            border-radius: 15px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
-            border: none;
+
+        .header-content {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
         }
-        
-        .difficulty-E { 
-            background: linear-gradient(45deg, #28a745, #20c997);
+
+        .logo {
+            display: flex;
+            align-items: center;
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--primary-color);
+            text-decoration: none;
+        }
+
+        .logo i {
+            margin-right: 0.5rem;
+        }
+
+        .nav-links {
+            display: flex;
+            align-items: center;
+            gap: 2rem;
+        }
+
+        .nav-link {
+            color: var(--text-secondary);
+            text-decoration: none;
+            font-weight: 500;
+            transition: color 0.2s;
+        }
+
+        .nav-link:hover, .nav-link.active {
+            color: var(--primary-color);
+        }
+
+        .user-profile {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .user-avatar {
+            width: 2rem;
+            height: 2rem;
+            background: var(--primary-color);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
             color: white;
-            padding: 0.3rem 0.8rem;
-            border-radius: 20px;
             font-weight: 600;
-            font-size: 0.85rem;
-        }
-        
-        .difficulty-M { 
-            background: linear-gradient(45deg, #ffc107, #fd7e14);
-            color: white;
-            padding: 0.3rem 0.8rem;
-            border-radius: 20px;
-            font-weight: 600;
-            font-size: 0.85rem;
-        }
-        
-        .difficulty-H { 
-            background: linear-gradient(45deg, #dc3545, #e74c3c);
-            color: white;
-            padding: 0.3rem 0.8rem;
-            border-radius: 20px;
-            font-weight: 600;
-            font-size: 0.85rem;
-        }
-
-        .verdict-AC { color: var(--success-color); font-weight: bold; }
-        .verdict-WA { color: var(--danger-color); font-weight: bold; }
-        .verdict-TLE { color: #fd7e14; font-weight: bold; }
-        .verdict-RE { color: var(--danger-color); font-weight: bold; }
-        .verdict-CE { color: #6c757d; font-weight: bold; }
-
-        .CodeMirror {
-            border: 1px solid #ddd;
-            border-radius: 8px;
-            font-size: 14px;
-            height: 400px;
-        }
-
-        .btn-modern {
-            background: var(--primary-gradient);
-            border: none;
-            border-radius: 25px;
-            padding: 0.6rem 1.5rem;
-            font-weight: 600;
-            letter-spacing: 0.5px;
-            transition: all 0.3s ease;
-            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
-        }
-
-        .btn-modern:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
-        }
-
-        .language-select {
-            border-radius: 10px;
-            border: 1px solid #ddd;
-            padding: 0.5rem;
-        }
-
-        .CodeMirror.error {
-            border-color: #dc3545;
-            box-shadow: 0 0 0 0.2rem rgba(220, 53, 69, 0.25);
-        }
-
-        .error-message {
-            color: #dc3545;
             font-size: 0.875rem;
+        }
+
+        /* Search Section */
+        .search-section {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+            box-shadow: var(--shadow-sm);
+        }
+
+        .search-container {
+            position: relative;
+            max-width: 400px;
+        }
+
+        .search-input {
+            width: 100%;
+            padding: 0.75rem 1rem 0.75rem 2.5rem;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            font-size: 0.875rem;
+            background: var(--bg-color);
+            transition: all 0.2s;
+        }
+
+        .search-input:focus {
+            outline: none;
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+        }
+
+        .search-icon {
+            position: absolute;
+            left: 0.75rem;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--text-secondary);
+            font-size: 0.875rem;
+        }
+
+        .clear-search {
+            margin-left: 1rem;
+            padding: 0.5rem 1rem;
+            background: var(--text-secondary);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 0.875rem;
+            text-decoration: none;
+            transition: background 0.2s;
+        }
+
+        .clear-search:hover {
+            background: var(--text-primary);
+            color: white;
+        }
+
+        /* Dashboard Grid */
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: 1fr 2fr;
+            gap: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+
+        /* Progress Card */
+        .progress-card {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 1.5rem;
+            box-shadow: var(--shadow-sm);
+        }
+
+        .card-title {
+            font-size: 1.125rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .progress-stats {
+            display: grid;
+            gap: 1rem;
+        }
+
+        .stat-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.75rem;
+            background: var(--bg-color);
+            border-radius: 8px;
+            border-left: 4px solid;
+        }
+
+        .stat-item.easy { border-left-color: var(--success-color); }
+        .stat-item.medium { border-left-color: var(--warning-color); }
+        .stat-item.hard { border-left-color: var(--danger-color); }
+
+        .stat-label {
+            font-weight: 500;
+            color: var(--text-primary);
+        }
+
+        .stat-value {
+            font-weight: 600;
+            color: var(--text-secondary);
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 4px;
+            background: var(--border-color);
+            border-radius: 2px;
+            overflow: hidden;
+            margin-top: 0.5rem;
+        }
+
+        .progress-fill {
+            height: 100%;
+            transition: width 0.8s ease;
+        }
+
+        .progress-fill.easy { background: var(--success-color); }
+        .progress-fill.medium { background: var(--warning-color); }
+        .progress-fill.hard { background: var(--danger-color); }
+
+        /* Quick Stats */
+        .quick-stats {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 1.5rem;
+            box-shadow: var(--shadow-sm);
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+
+        .quick-stat {
+            text-align: center;
+            padding: 1rem;
+            background: var(--bg-color);
+            border-radius: 8px;
+        }
+
+        .quick-stat-number {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--primary-color);
+        }
+
+        .quick-stat-label {
+            font-size: 0.875rem;
+            color: var(--text-secondary);
             margin-top: 0.25rem;
         }
 
-        .markdown-content {
-            line-height: 1.6;
-            font-size: 14px;
+        /* Problems Table */
+        .problems-card {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 1.5rem;
+            box-shadow: var(--shadow-sm);
         }
-        
-        .markdown-content h1, .markdown-content h2, .markdown-content h3 {
-            color: #333;
-            margin-top: 1.5rem;
-            margin-bottom: 0.5rem;
+
+        .table-container {
+            overflow: hidden;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
         }
-        
-        .markdown-content code {
-            background-color: #f8f9fa;
-            padding: 0.2rem 0.4rem;
-            border-radius: 3px;
-            font-family: 'Courier New', monospace;
+
+        .custom-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.875rem;
         }
-        
-        .markdown-content pre {
-            background-color: #f8f9fa;
+
+        .custom-table th {
+            background: var(--bg-color);
+            padding: 0.75rem 1rem;
+            text-align: left;
+            font-weight: 600;
+            color: var(--text-primary);
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .custom-table td {
             padding: 1rem;
-            border-radius: 5px;
-            border-left: 4px solid #007bff;
-            overflow-x: auto;
-        }
-        
-        .markdown-content ul, .markdown-content ol {
-            padding-left: 1.5rem;
-        }
-        
-        .markdown-content li {
-            margin-bottom: 0.5rem;
+            border-bottom: 1px solid var(--border-color);
+            vertical-align: top;
         }
 
-        .back-btn {
-            background: #6c757d;
-            border: none;
-            border-radius: 25px;
-            padding: 0.5rem 1.2rem;
-            color: white;
-            text-decoration: none;
-            transition: all 0.3s ease;
-            display: inline-flex;
-            align-items: center;
-            margin-bottom: 20px;
+        .problem-row {
+            transition: background-color 0.2s;
+            cursor: pointer;
         }
 
-        .back-btn:hover {
-            background: #5a6268;
-            color: white;
+        .problem-row:hover {
+            background: var(--bg-color);
+        }
+
+        .problem-row.solved {
+            background: rgba(16, 185, 129, 0.05);
+            border-left: 3px solid var(--success-color);
+        }
+
+        .problem-name {
+            font-weight: 600;
+            color: var(--text-primary);
             text-decoration: none;
-            transform: translateY(-1px);
+        }
+
+        .problem-name:hover {
+            color: var(--primary-color);
+        }
+
+        .problem-code {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            margin-top: 0.25rem;
+        }
+
+        .difficulty-badge {
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: 500;
+        }
+
+        .difficulty-badge.easy {
+            background: rgba(16, 185, 129, 0.1);
+            color: var(--success-color);
+        }
+
+        .difficulty-badge.medium {
+            background: rgba(245, 158, 11, 0.1);
+            color: var(--warning-color);
+        }
+
+        .difficulty-badge.hard {
+            background: rgba(239, 68, 68, 0.1);
+            color: var(--danger-color);
+        }
+
+        .status-badge {
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: 500;
+        }
+
+        .status-badge.solved {
+            background: rgba(16, 185, 129, 0.1);
+            color: var(--success-color);
+        }
+
+        .status-badge.unsolved {
+            background: rgba(100, 116, 139, 0.1);
+            color: var(--text-secondary);
+        }
+
+        /* Empty State */
+        .empty-state {
+            text-align: center;
+            padding: 3rem 1rem;
+            color: var(--text-secondary);
+        }
+
+        .empty-state i {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+            opacity: 0.5;
+        }
+
+        /* Messages */
+        .alert {
+            border-radius: 8px;
+            margin-bottom: 1rem;
+            border: 1px solid;
+        }
+
+        .alert-success {
+            background: rgba(16, 185, 129, 0.1);
+            border-color: rgba(16, 185, 129, 0.2);
+            color: var(--success-color);
+        }
+
+        .alert-danger {
+            background: rgba(239, 68, 68, 0.1);
+            border-color: rgba(239, 68, 68, 0.2);
+            color: var(--danger-color);
+        }
+
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            .dashboard-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .stats-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .nav-links {
+                gap: 1rem;
+            }
+
+            .header-content {
+                flex-direction: column;
+                gap: 1rem;
+                align-items: stretch;
+            }
+
+            .custom-table {
+                font-size: 0.8rem;
+            }
+
+            .custom-table th,
+            .custom-table td {
+                padding: 0.5rem;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .problems-card {
+                padding: 1rem;
+            }
+            
+            .search-section {
+                padding: 1rem;
+            }
         }
     </style>
 </head>
+
 <body>
-    <!-- Navigation Bar -->
-    <nav class="navbar navbar-expand-lg navbar-dark">
+    <!-- Header -->
+    <header class="header">
         <div class="container">
-            <a class="navbar-brand" href="{% url 'core:problems_list' %}">
-                <i class="fas fa-code"></i> CodeJudge
-            </a>
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
-                <span class="navbar-toggler-icon"></span>
-            </button>
-            <div class="collapse navbar-collapse" id="navbarNav">
-                <ul class="navbar-nav me-auto">
-                    <li class="nav-item">
-                        <a class="nav-link" href="{% url 'core:problems_list' %}">
-                            <i class="fas fa-list"></i> Problems
-                        </a>
-                    </li>
+            <div class="header-content">
+                <a href="{% url 'core:problems_list' %}" class="logo">
+                    <i class="fas fa-code"></i>
+                    CodeJudge
+                </a>
+                
+                <nav class="nav-links">
+                    <a href="{% url 'core:problems_list' %}" class="nav-link active">Problems</a>
                     {% if user.is_authenticated %}
-                    <li class="nav-item">
-                        <a class="nav-link" href="{% url 'core:submissions_list' %}">
-                            <i class="fas fa-history"></i> My Submissions
-                        </a>
-                    </li>
+                    <a href="{% url 'core:submissions_list' %}" class="nav-link">My Submissions</a>
                     {% endif %}
-                </ul>
-                <ul class="navbar-nav">
+                </nav>
+                
+                <div class="user-profile">
                     {% if user.is_authenticated %}
-                        <li class="nav-item dropdown">
-                            <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" data-bs-toggle="dropdown">
-                                <i class="fas fa-user"></i> {{ user.username }}
-                            </a>
-                            <ul class="dropdown-menu">
-                                <li><a class="dropdown-item" href="{% url 'core:submissions_list' %}">
-                                    <i class="fas fa-history"></i> My Submissions
-                                </a></li>
-                                <li><hr class="dropdown-divider"></li>
-                                <li><a class="dropdown-item" href="{% url 'authentication:logout-user' %}">
-                                    <i class="fas fa-sign-out-alt"></i> Logout
-                                </a></li>
-                            </ul>
-                        </li>
+                    <div class="user-avatar">{{ user.username|first|upper }}</div>
+                    <span>{{ user.username }}</span>
+                    <div class="dropdown">
+                        <button class="btn btn-sm" type="button" data-bs-toggle="dropdown">
+                            <i class="fas fa-chevron-down"></i>
+                        </button>
+                        <ul class="dropdown-menu">
+                            <li><a class="dropdown-item" href="{% url 'core:submissions_list' %}">Profile</a></li>
+                            <li><a class="dropdown-item" href="{% url 'authentication:logout-user' %}">Logout</a></li>
+                        </ul>
+                    </div>
                     {% else %}
-                        <li class="nav-item">
-                            <a class="nav-link" href="{% url 'authentication:login-user' %}">
-                                <i class="fas fa-sign-in-alt"></i> Login
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link" href="{% url 'authentication:register-user' %}">
-                                <i class="fas fa-user-plus"></i> Register
-                            </a>
-                        </li>
+                    <a href="{% url 'authentication:login-user' %}" class="nav-link">Login</a>
+                    <a href="{% url 'authentication:register-user' %}" class="nav-link">Register</a>
                     {% endif %}
-                </ul>
+                </div>
             </div>
         </div>
-    </nav>
+    </header>
 
-    <div class="container mt-4">
-        <!-- Back to Problems Button -->
-        <a href="{% url 'core:problems_list' %}" class="back-btn">
-            <i class="fas fa-arrow-left me-2"></i>Back to Problems
-        </a>
-
+    <div class="container" style="margin-top: 1.5rem;">
         <!-- Messages -->
         {% if messages %}
             {% for message in messages %}
-                <div class="alert alert-{{ message.tags }} alert-dismissible fade show">
+                <div class="alert alert-{{ message.tags|default:'info' }}">
                     {{ message }}
-                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
                 </div>
             {% endfor %}
         {% endif %}
 
-        <div class="row">
-            <!-- Problem Statement Column -->
-            <div class="col-lg-6">
-                <div class="card problem-card mb-4">
-                    <div class="card-header bg-transparent border-0 p-4">
-                        <div class="d-flex justify-content-between align-items-center">
-                            <h2 class="mb-0">{{ problem.name }}</h2>
-                            <span class="difficulty-{{ problem.difficulty }}">
-                                {% if problem.difficulty == 'E' %}
-                                    <i class="fas fa-star"></i> Easy
-                                {% elif problem.difficulty == 'M' %}
-                                    <i class="fas fa-star-half-alt"></i> Medium
-                                {% else %}
-                                    <i class="fas fa-fire"></i> Hard
-                                {% endif %}
-                            </span>
-                        </div>
-                        <p class="text-muted mb-0">{{ problem.short_code }}</p>
+        <!-- Search Section -->
+        <div class="search-section">
+            <form method="GET" action="{% url 'core:problems_list' %}">
+                <div style="display: flex; align-items: center;">
+                    <div class="search-container">
+                        <i class="fas fa-search search-icon"></i>
+                        <input type="text" 
+                               name="search" 
+                               class="search-input" 
+                               placeholder="Search problems..." 
+                               value="{{ search_query }}">
                     </div>
-                    <div class="card-body p-4">
-                        <h5><i class="fas fa-file-alt"></i> Problem Statement</h5>
-                        <div class="problem-statement">
-                            {{ problem.statement|linebreaksbr }}
-                        </div>
-                        
-                        {% if testcases %}
-                        <h5 class="mt-4"><i class="fas fa-vial"></i> Sample Test Cases</h5>
-                        {% for testcase in testcases|slice:":2" %}
-                        <div class="testcase-example mt-3">
-                            <h6>Example {{ forloop.counter }}:</h6>
-                            <div class="row">
-                                <div class="col-md-6">
-                                    <strong>Input:</strong>
-                                    <pre class="bg-light p-2 rounded">{{ testcase.input }}</pre>
-                                </div>
-                                <div class="col-md-6">
-                                    <strong>Output:</strong>
-                                    <pre class="bg-light p-2 rounded">{{ testcase.output }}</pre>
-                                </div>
-                            </div>
-                        </div>
-                        {% endfor %}
-                        {% endif %}
-                    </div>
+                    {% if search_query %}
+                    <a href="{% url 'core:problems_list' %}" class="clear-search">
+                        <i class="fas fa-times"></i> Clear
+                    </a>
+                    {% endif %}
                 </div>
-            </div>
-
-            <!-- Code Editor Column -->
-            <div class="col-lg-6">
-                {% if user.is_authenticated %}
-                <div class="card problem-card mb-4">
-                    <div class="card-header bg-transparent border-0 p-4">
-                        <h5><i class="fas fa-code"></i> Submit Solution</h5>
-                    </div>
-                    <div class="card-body p-4">
-                        <form id="submissionForm" method="post">
-                            {% csrf_token %}
-                            <div class="mb-3">
-                                <label for="language" class="form-label">Language:</label>
-                                <select name="language" id="language" class="form-select language-select">
-                                    <option value="py">Python 3</option>
-                                    <option value="cpp">C++</option>
-                                    <option value="c">C</option>
-                                </select>
-                            </div>
-                            <div class="mb-3">
-                                <label for="code" class="form-label">Your Code:</label>
-                                <textarea name="code" id="code" class="form-control" rows="20" placeholder="Write your solution here..."></textarea>
-                                <div id="codeError" class="error-message" style="display: none;">
-                                    Please write some code before submitting.
-                                </div>
-                            </div>
-                            <button type="submit" class="btn btn-modern">
-                                <i class="fas fa-paper-plane"></i> Submit Solution
-                            </button>
-                        </form>
-
-                        <!-- AI Review Section - Show if user has submissions -->
-                        {% if user_submissions %}
-                        <div id="aiReviewSection" class="mt-3">
-                            <button type="button" id="aiReviewBtn" class="btn btn-outline-info">
-                                <i class="fas fa-robot"></i> Get AI Code Review
-                            </button>
-                            <small class="text-muted d-block mt-1">Get optimization suggestions and code analysis</small>
-                        </div>
-                        {% else %}
-                        <div id="aiReviewSection" style="display: none;" class="mt-3">
-                            <button type="button" id="aiReviewBtn" class="btn btn-outline-info">
-                                <i class="fas fa-robot"></i> Get AI Code Review
-                            </button>
-                            <small class="text-muted d-block mt-1">Get optimization suggestions and code analysis</small>
-                        </div>
-                        {% endif %}
-                    </div>
-                </div>
-                {% else %}
-                <div class="card problem-card">
-                    <div class="card-body text-center p-5">
-                        <i class="fas fa-lock fa-3x text-muted mb-3"></i>
-                        <h5>Login Required</h5>
-                        <p class="text-muted">Please login to submit your solution.</p>
-                        <a href="{% url 'authentication:login-user' %}" class="btn btn-modern">
-                            <i class="fas fa-sign-in-alt"></i> Login
-                        </a>
-                    </div>
+                {% if search_query %}
+                <div style="margin-top: 0.5rem; font-size: 0.875rem; color: var(--text-secondary);">
+                    Found {{ problems|length }} problem{{ problems|length|pluralize }} for "{{ search_query }}"
                 </div>
                 {% endif %}
-            </div>
+            </form>
         </div>
 
-        <!-- User Submissions -->
-        {% if user.is_authenticated and user_submissions %}
-        <div class="row mt-4">
-            <div class="col-12">
-                <div class="card problem-card">
-                    <div class="card-header bg-transparent border-0 p-4">
-                        <h5><i class="fas fa-history"></i> Your Recent Submissions</h5>
-                    </div>
-                    <div class="card-body p-4">
-                        <div class="table-responsive">
-                            <table class="table table-hover">
-                                <thead>
-                                    <tr>
-                                        <th>Verdict</th>
-                                        <th>Language</th>
-                                        <th>Submitted</th>
-                                        <th>Action</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {% for submission in user_submissions %}
-                                    <tr>
-                                        <td>
-                                            <span class="verdict-{{ submission.verdict }}">
-                                                {{ submission.get_verdict_display }}
-                                            </span>
-                                        </td>
-                                        <td>{{ submission.language|upper }}</td>
-                                        <td>{{ submission.submitted|date:"M d, Y H:i" }}</td>
-                                        <td>
-                                            <button class="btn btn-sm btn-outline-primary" 
-                                                    onclick="showCode({{ submission.id }}, '{{ submission.code_text|escapejs }}')">
-                                                View Code
-                                            </button>
-                                        </td>
-                                    </tr>
-                                    {% endfor %}
-                                </tbody>
-                            </table>
+        <!-- Dashboard Grid -->
+        {% if user.is_authenticated and not search_query %}
+        <div class="dashboard-grid">
+            <!-- Progress Card -->
+            <div class="progress-card">
+                <h3 class="card-title">
+                    <i class="fas fa-chart-line"></i>
+                    Your Progress
+                </h3>
+                <div class="progress-stats">
+                    <div class="stat-item easy">
+                        <div>
+                            <div class="stat-label">Easy</div>
+                            <div class="stat-value">{{ user_progress.easy_completed }}/{{ easy_count }}</div>
+                            <div class="progress-bar">
+                                <div class="progress-fill easy" data-easy-completed="{{ user_progress.easy_completed }}" data-easy-total="{{ easy_count }}"></div>
+                            </div>
                         </div>
+                    </div>
+                    <div class="stat-item medium">
+                        <div>
+                            <div class="stat-label">Medium</div>
+                            <div class="stat-value">{{ user_progress.medium_completed }}/{{ medium_count }}</div>
+                            <div class="progress-bar">
+                                <div class="progress-fill medium" data-medium-completed="{{ user_progress.medium_completed }}" data-medium-total="{{ medium_count }}"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="stat-item hard">
+                        <div>
+                            <div class="stat-label">Hard</div>
+                            <div class="stat-value">{{ user_progress.hard_completed }}/{{ hard_count }}</div>
+                            <div class="progress-bar">
+                                <div class="progress-fill hard" data-hard-completed="{{ user_progress.hard_completed }}" data-hard-total="{{ hard_count }}"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Quick Stats -->
+            <div class="quick-stats">
+                <h3 class="card-title">
+                    <i class="fas fa-chart-pie"></i>
+                    Overview
+                </h3>
+                <div class="stats-grid">
+                    <div class="quick-stat">
+                        <div class="quick-stat-number">{{ problems|length }}</div>
+                        <div class="quick-stat-label">Total Problems</div>
+                    </div>
+                    <div class="quick-stat">
+                        <div class="quick-stat-number">{{ user_progress.solved_problems|length }}</div>
+                        <div class="quick-stat-label">Solved</div>
+                    </div>
+                    <div class="quick-stat">
+                        <div class="quick-stat-number">
+                            {% with total_problems=problems|length solved_count=user_progress.solved_problems|length %}
+                                {% if total_problems > 0 %}
+                                    {% widthratio solved_count total_problems 100 %}%
+                                {% else %}
+                                    0%
+                                {% endif %}
+                            {% endwith %}
+                        </div>
+                        <div class="quick-stat-label">Success Rate</div>
+                    </div>
+                    <div class="quick-stat">
+                        <div class="quick-stat-number">{{ problems|length|add:"-"|add:user_progress.solved_problems|length }}</div>
+                        <div class="quick-stat-label">Remaining</div>
                     </div>
                 </div>
             </div>
         </div>
         {% endif %}
-    </div>
 
-    <!-- Code Modal -->
-    <div class="modal fade" id="codeModal" tabindex="-1">
-        <div class="modal-dialog modal-lg">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title">Submission Code</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                </div>
-                <div class="modal-body">
-                    <pre id="codeContent" class="bg-light p-3 rounded" style="max-height: 400px; overflow-y: auto;"></pre>
-                </div>
+        <!-- Problems List -->
+        <div class="problems-card">
+            <h3 class="card-title">
+                <i class="fas fa-list"></i>
+                {% if search_query %}Search Results{% else %}Problem List{% endif %}
+            </h3>
+            
+            <div class="table-container">
+                <table class="custom-table">
+                    <thead>
+                        <tr>
+                            <th style="width: 60px;">#</th>
+                            <th>Problem</th>
+                            <th style="width: 100px;">Difficulty</th>
+                            <th>Description</th>
+                            <th style="width: 80px;">Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for problem in problems %}
+                        <tr class="problem-row {% if problem.short_code in user_progress.solved_problems %}solved{% endif %}" 
+                            data-url="{% url 'core:problem_detail' problem.short_code %}">
+                            <td>{{ forloop.counter }}</td>
+                            <td>
+                                <a href="{% url 'core:problem_detail' problem.short_code %}" class="problem-name">
+                                    {{ problem.name }}
+                                </a>
+                                <div class="problem-code">{{ problem.short_code }}</div>
+                            </td>
+                            <td>
+                                {% if problem.difficulty == 'E' %}
+                                    <span class="difficulty-badge easy">Easy</span>
+                                {% elif problem.difficulty == 'M' %}
+                                    <span class="difficulty-badge medium">Medium</span>
+                                {% else %}
+                                    <span class="difficulty-badge hard">Hard</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <span style="color: var(--text-secondary);">
+                                    {{ problem.statement|truncatewords:12 }}
+                                </span>
+                            </td>
+                            <td>
+                                {% if problem.short_code in user_progress.solved_problems %}
+                                    <span class="status-badge solved">
+                                        <i class="fas fa-check"></i>
+                                    </span>
+                                {% else %}
+                                    <span class="status-badge unsolved">
+                                        <i class="far fa-circle"></i>
+                                    </span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="5">
+                                <div class="empty-state">
+                                    <i class="fas fa-search"></i>
+                                    {% if search_query %}
+                                        <h5>No problems found</h5>
+                                        <p>Try adjusting your search terms</p>
+                                    {% else %}
+                                        <h5>No problems available</h5>
+                                        <p>Check back later for new problems!</p>
+                                    {% endif %}
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
             </div>
         </div>
     </div>
 
-    <!-- AI Review Modal -->
-    <div class="modal fade" id="aiReviewModal" tabindex="-1">
-        <div class="modal-dialog modal-xl">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title">
-                        <i class="fas fa-robot text-info"></i> AI Code Review
-                    </h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                </div>
-                <div class="modal-body">
-                    <div id="aiReviewLoading" class="text-center py-4">
-                        <div class="spinner-border text-info" role="status">
-                            <span class="visually-hidden">Loading...</span>
-                        </div>
-                        <p class="mt-2">Analyzing your code...</p>
-                    </div>
-                    <div id="aiReviewContent" style="display: none;">
-                        <div id="aiReviewText" class="markdown-content"></div>
-                    </div>
-                    <div id="aiReviewError" style="display: none;" class="alert alert-danger">
-                        <i class="fas fa-exclamation-triangle"></i>
-                        <span id="aiReviewErrorText"></span>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
+    <!-- Bootstrap JS -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/codemirror.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/mode/python/python.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/mode/clike/clike.min.js"></script>
-    
-    <!-- User Submissions Data for JavaScript -->
-    {% if user.is_authenticated and user_submissions %}
-    <script id="user-submissions-data" type="application/json">
-    [{% for submission in user_submissions %}
-      {
-        "id": {{ submission.id }},
-        "verdict": "{{ submission.verdict }}",
-        "submitted": "{{ submission.submitted|date:'c' }}"
-      }{% if not forloop.last %},{% endif %}
-    {% endfor %}]
-    </script>
-    {% endif %}
     
     <script>
-        // Global variables
-        let editor;
-        
-        // Wait for DOM to be fully loaded
         document.addEventListener('DOMContentLoaded', function() {
-            initializeCodeMirror();
-            setupFormValidation();
-            setupAIReview();
+            // Initialize progress bars
+            initializeProgressBars();
+            
+            // Problem row click handlers
+            document.querySelectorAll('.problem-row').forEach(row => {
+                row.addEventListener('click', function(e) {
+                    if (e.target.tagName.toLowerCase() === 'a') return;
+                    
+                    const url = this.getAttribute('data-url');
+                    if (url) window.location.href = url;
+                });
+            });
+
+            // Search functionality
+            const searchForm = document.querySelector('form');
+            if (searchForm) {
+                searchForm.addEventListener('submit', function(e) {
+                    const searchInput = this.querySelector('input[name="search"]');
+                    if (!searchInput.value.trim()) {
+                        e.preventDefault();
+                        return false;
+                    }
+                });
+            }
+
+            // Auto-focus search input
+            const searchInput = document.querySelector('input[name="search"]');
+            if (searchInput && "{{ search_query|escapejs }}") {
+                searchInput.focus();
+                searchInput.setSelectionRange(searchInput.value.length, searchInput.value.length);
+            }
         });
 
-        function initializeCodeMirror() {
-            const codeTextarea = document.getElementById('code');
-            if (!codeTextarea) return;
-
-            editor = CodeMirror.fromTextArea(codeTextarea, {
-                lineNumbers: true,
-                theme: 'monokai',
-                mode: 'python',
-                indentUnit: 4,
-                lineWrapping: true,
-                matchBrackets: true,
-                autoCloseBrackets: true
-            });
-
-            // Setup language change handler
-            const languageSelect = document.getElementById('language');
-            if (languageSelect) {
-                languageSelect.addEventListener('change', handleLanguageChange);
+        function initializeProgressBars() {
+            // Easy progress bar
+            const easyFill = document.querySelector('.progress-fill.easy');
+            if (easyFill) {
+                const completed = parseInt(easyFill.getAttribute('data-easy-completed')) || 0;
+                const total = parseInt(easyFill.getAttribute('data-easy-total')) || 0;
+                const percentage = total > 0 ? (completed / total) * 100 : 0;
+                easyFill.style.width = percentage + '%';
             }
 
-            // Setup editor change handler
-            editor.on('change', handleEditorChange);
-        }
-
-        function handleLanguageChange() {
-            const language = document.getElementById('language').value;
-            let mode;
-            switch(language) {
-                case 'py': 
-                    mode = 'python'; 
-                    break;
-                case 'cpp': 
-                    mode = 'text/x-c++src'; 
-                    break;
-                case 'c': 
-                    mode = 'text/x-csrc'; 
-                    break;
-                default: 
-                    mode = 'python';
+            // Medium progress bar
+            const mediumFill = document.querySelector('.progress-fill.medium');
+            if (mediumFill) {
+                const completed = parseInt(mediumFill.getAttribute('data-medium-completed')) || 0;
+                const total = parseInt(mediumFill.getAttribute('data-medium-total')) || 0;
+                const percentage = total > 0 ? (completed / total) * 100 : 0;
+                mediumFill.style.width = percentage + '%';
             }
-            if (editor) {
-                editor.setOption('mode', mode);
+
+            // Hard progress bar
+            const hardFill = document.querySelector('.progress-fill.hard');
+            if (hardFill) {
+                const completed = parseInt(hardFill.getAttribute('data-hard-completed')) || 0;
+                const total = parseInt(hardFill.getAttribute('data-hard-total')) || 0;
+                const percentage = total > 0 ? (completed / total) * 100 : 0;
+                hardFill.style.width = percentage + '%';
             }
-        }
-
-        function handleEditorChange() {
-            if (!editor) return;
-            
-            const codeTextarea = document.getElementById('code');
-            if (codeTextarea) {
-                codeTextarea.value = editor.getValue();
-            }
-            
-            // Clear error state when user starts typing
-            const codeError = document.getElementById('codeError');
-            const codeMirrorElement = document.querySelector('.CodeMirror');
-            
-            if (editor.getValue().trim()) {
-                if (codeError) codeError.style.display = 'none';
-                if (codeMirrorElement) codeMirrorElement.classList.remove('error');
-            }
-        }
-
-        function setupFormValidation() {
-            const submissionForm = document.getElementById('submissionForm');
-            if (!submissionForm) return;
-
-            submissionForm.addEventListener('submit', function(e) {
-                if (!editor) return true;
-                
-                const code = editor.getValue().trim();
-                const codeError = document.getElementById('codeError');
-                const codeMirrorElement = document.querySelector('.CodeMirror');
-
-                // Reset previous error states
-                if (codeError) codeError.style.display = 'none';
-                if (codeMirrorElement) codeMirrorElement.classList.remove('error');
-
-                // Check if code is empty
-                if (!code) {
-                    e.preventDefault();
-                    
-                    if (codeError) codeError.style.display = 'block';
-                    if (codeMirrorElement) {
-                        codeMirrorElement.classList.add('error');
-                        codeMirrorElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                    }
-                    
-                    editor.focus();
-                    return false;
-                }
-
-                // Update the hidden textarea with CodeMirror content
-                const codeTextarea = document.getElementById('code');
-                if (codeTextarea) {
-                    codeTextarea.value = code;
-                }
-                
-                return true;
-            });
-        }
-
-        function setupAIReview() {
-            const aiReviewBtn = document.getElementById('aiReviewBtn');
-            if (!aiReviewBtn) return;
-
-            aiReviewBtn.addEventListener('click', handleAIReviewClick);
-        }
-
-        function handleAIReviewClick() {
-            const modalElement = document.getElementById('aiReviewModal');
-            if (!modalElement) return;
-
-            const modal = new bootstrap.Modal(modalElement);
-            modal.show();
-            
-            // Show loading state
-            showAIReviewLoading();
-            
-            // Get submission ID safely
-            const submissionId = getSubmissionId();
-            
-            if (!submissionId) {
-                showAiReviewError('No recent submission found. Please submit a solution first.');
-                return;
-            }
-            
-            // Make AJAX request
-            makeAIReviewRequest(submissionId);
-        }
-
-        function showAIReviewLoading() {
-            const loadingEl = document.getElementById('aiReviewLoading');
-            const contentEl = document.getElementById('aiReviewContent');
-            const errorEl = document.getElementById('aiReviewError');
-            
-            if (loadingEl) loadingEl.style.display = 'block';
-            if (contentEl) contentEl.style.display = 'none';
-            if (errorEl) errorEl.style.display = 'none';
-        }
-
-        function getSubmissionId() {
-            // Try to get from template variables (this would be populated by Django)
-            const userSubmissionsScript = document.getElementById('user-submissions-data');
-            if (userSubmissionsScript) {
-                try {
-                    const data = JSON.parse(userSubmissionsScript.textContent);
-                    if (data && data.length > 0) {
-                        return data[0].id;
-                    }
-                } catch (e) {
-                    console.error('Error parsing submission data:', e);
-                }
-            }
-            
-            return null;
-        }
-
-        function makeAIReviewRequest(submissionId) {
-            const csrfToken = getCSRFToken();
-            
-            // Note: This URL pattern needs to exist in your URLs
-            fetch(`/ai-review/${submissionId}/`, {
-                method: 'GET',
-                headers: {
-                    'X-Requested-With': 'XMLHttpRequest',
-                    'X-CSRFToken': csrfToken
-                }
-            })
-            .then(response => {
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
-                return response.json();
-            })
-            .then(data => {
-                hideAIReviewLoading();
-                
-                if (data.success) {
-                    showAIReviewContent(data.review);
-                } else {
-                    showAiReviewError(data.error || 'Failed to get AI review');
-                }
-            })
-            .catch(error => {
-                hideAIReviewLoading();
-                showAiReviewError('Network error. Please check your connection and try again.');
-                console.error('AI Review Error:', error);
-            });
-        }
-
-        function getCSRFToken() {
-            const csrfElement = document.querySelector('[name=csrfmiddlewaretoken]');
-            return csrfElement ? csrfElement.value : '';
-        }
-
-        function hideAIReviewLoading() {
-            const loadingEl = document.getElementById('aiReviewLoading');
-            if (loadingEl) loadingEl.style.display = 'none';
-        }
-
-        function showAIReviewContent(review) {
-            const reviewTextEl = document.getElementById('aiReviewText');
-            const contentEl = document.getElementById('aiReviewContent');
-            
-            if (reviewTextEl) {
-                reviewTextEl.innerHTML = formatAiReview(review);
-            }
-            if (contentEl) {
-                contentEl.style.display = 'block';
-            }
-        }
-
-        function showCode(submissionId, code) {
-            const codeContent = document.getElementById('codeContent');
-            const codeModal = document.getElementById('codeModal');
-            if (codeContent && codeModal) {
-                codeContent.textContent = code;
-                const modal = new bootstrap.Modal(codeModal);
-                modal.show();
-            }
-        }
-
-        function showAiReviewError(message) {
-            const errorTextEl = document.getElementById('aiReviewErrorText');
-            const errorEl = document.getElementById('aiReviewError');
-            if (errorTextEl && errorEl) {
-                errorTextEl.textContent = message;
-                errorEl.style.display = 'block';
-            }
-        }
-
-        function formatAiReview(text) {
-            if (!text) return '';
-            
-            // Basic markdown-like formatting
-            return text
-                .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-                .replace(/\*(.*?)\*/g, '<em>$1</em>')
-                .replace(/`(.*?)`/g, '<code>$1</code>')
-                .replace(/^### (.*$)/gm, '<h3>$1</h3>')
-                .replace(/^## (.*$)/gm, '<h2>$1</h2>')
-                .replace(/^# (.*$)/gm, '<h1>$1</h1>')
-                .replace(/\n\n/g, '</p><p>')
-                .replace(/\n/g, '<br>')
-                .replace(/^(.*)$/, '<p>$1</p>')
-                .replace(/```([\s\S]*?)```/g, '<pre><code>$1</code></pre>');
         }
     </script>
 </body>
+
 </html>
