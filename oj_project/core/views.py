@@ -7,15 +7,31 @@ from .models import Problem, Submission, TestCase
 from collections import defaultdict
 
 def problems_list(request):
-    """Display list of all problems with user progress"""
-    problems = Problem.objects.all().order_by('difficulty', 'name')
+    """Display list of all problems with user progress and search functionality"""
+    # Get search query
+    search_query = request.GET.get('search', '').strip()
+    
+    # Base queryset
+    problems = Problem.objects.all()
+    
+    # Apply search filter if query exists
+    if search_query:
+        problems = problems.filter(
+            Q(name__icontains=search_query) |
+            Q(short_code__icontains=search_query) |
+            Q(statement__icontains=search_query)
+        )
+    
+    # Order problems
+    problems = problems.order_by('difficulty', 'name')
     
     # Initialize context data
     context = {
         'problems': problems,
-        'easy_count': problems.filter(difficulty='E').count(),
-        'medium_count': problems.filter(difficulty='M').count(),
-        'hard_count': problems.filter(difficulty='H').count(),
+        'search_query': search_query,
+        'easy_count': Problem.objects.filter(difficulty='E').count(),
+        'medium_count': Problem.objects.filter(difficulty='M').count(),
+        'hard_count': Problem.objects.filter(difficulty='H').count(),
     }
     
     # If user is authenticated, calculate their progress
@@ -28,12 +44,13 @@ def problems_list(request):
         
         solved_problems = set(accepted_submissions)
         
-        # Count solved problems by difficulty
+        # Count solved problems by difficulty (from all problems, not just filtered)
+        all_problems = Problem.objects.all()
         easy_solved = 0
         medium_solved = 0
         hard_solved = 0
         
-        for problem in problems:
+        for problem in all_problems:
             if problem.short_code in solved_problems:
                 if problem.difficulty == 'E':
                     easy_solved += 1
@@ -63,14 +80,27 @@ def problems_list(request):
 
 def problem_detail(request, short_code):
     """Display problem details and handle submission"""
-    problem = get_object_or_404(Problem, short_code=short_code)
+    try:
+        problem = get_object_or_404(Problem, short_code=short_code)
+    except Problem.DoesNotExist:
+        messages.error(request, f'Problem with code "{short_code}" not found.')
+        return redirect('core:problems_list')
     
     # Get visible test cases (not hidden)
     visible_testcases = problem.testcases.filter(is_hidden=False)
     
+    # Get user's submissions for this problem if authenticated
+    user_submissions = []
+    if request.user.is_authenticated:
+        user_submissions = Submission.objects.filter(
+            problem=problem,
+            user=request.user
+        ).order_by('-submitted')[:10]  # Last 10 submissions
+    
     context = {
         'problem': problem,
         'testcases': visible_testcases,
+        'user_submissions': user_submissions,
     }
     
     # Handle code submission
