@@ -1,6 +1,6 @@
 """
 Django settings for oj_project project.
-Updated for Render deployment with environment variables.
+Production-ready configuration with proper database handling.
 """
 import os
 import dj_database_url
@@ -13,14 +13,22 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-5v=pi38z*mjkv8xn#b!e6gt1)=46qdw2&8_@^@87(c)wdhmdj3')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = os.environ.get('DEBUG', 'False').lower() in ['true', '1', 'yes']
+DEBUG = os.environ.get('DEBUG', 'False').lower() == 'true'
 
-# Render deployment settings
-RENDER_EXTERNAL_HOSTNAME = os.environ.get('RENDER_EXTERNAL_HOSTNAME')
-if RENDER_EXTERNAL_HOSTNAME:
-    ALLOWED_HOSTS = [RENDER_EXTERNAL_HOSTNAME, 'localhost', '127.0.0.1']
-else:
-    ALLOWED_HOSTS = ['localhost', '127.0.0.1', '0.0.0.0']
+# Updated ALLOWED_HOSTS for Render deployment
+ALLOWED_HOSTS = [
+    'localhost', 
+    '127.0.0.1', 
+    '0.0.0.0',
+    'codemaster-jlup.onrender.com',  # Your Render domain
+]
+
+# Get from environment or use wildcard for development
+if os.environ.get('RENDER_EXTERNAL_HOSTNAME'):
+    ALLOWED_HOSTS.append(os.environ['RENDER_EXTERNAL_HOSTNAME'])
+
+if DEBUG:
+    ALLOWED_HOSTS.append('*')
 
 # Application definition
 INSTALLED_APPS = [
@@ -37,7 +45,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
-    'whitenoise.middleware.WhiteNoiseMiddleware',  # For serving static files
+    'whitenoise.middleware.WhiteNoiseMiddleware',  # For static files in production
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -71,15 +79,19 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'oj_project.wsgi.application'
 
-# Database configuration
-DATABASE_URL = os.environ.get('DATABASE_URL')
-if DATABASE_URL:
-    # Production database (PostgreSQL on Render)
+# Database Configuration
+# Use PostgreSQL in production, SQLite in development
+if os.environ.get('DATABASE_URL'):
+    # Production database (Render PostgreSQL)
     DATABASES = {
-        'default': dj_database_url.parse(DATABASE_URL)
+        'default': dj_database_url.parse(
+            os.environ.get('DATABASE_URL'),
+            conn_max_age=600,
+            conn_health_checks=True,
+        )
     }
 else:
-    # Local development database (SQLite)
+    # Development database (SQLite)
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.sqlite3',
@@ -111,39 +123,50 @@ USE_TZ = True
 
 # Static files (CSS, JavaScript, Images)
 STATIC_URL = '/static/'
-STATIC_ROOT = os.environ.get('STATIC_ROOT', BASE_DIR / 'staticfiles')
+STATIC_ROOT = BASE_DIR / 'staticfiles'
+
+# Static files storage for production
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
 # Media files
 MEDIA_URL = '/media/'
-MEDIA_ROOT = os.environ.get('MEDIA_ROOT', BASE_DIR / 'media')
+MEDIA_ROOT = BASE_DIR / 'media'
 
 # Default primary key field type
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # Security settings for production
 if not DEBUG:
+    # Production security settings
+    SECURE_BROWSER_XSS_FILTER = True
+    SECURE_CONTENT_TYPE_NOSNIFF = True
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+    SECURE_HSTS_SECONDS = 31536000
+    SECURE_REDIRECT_EXEMPT = []
+    SECURE_SSL_REDIRECT = True
+    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
     SESSION_COOKIE_SECURE = True
     CSRF_COOKIE_SECURE = True
-    SECURE_SSL_REDIRECT = True
-    SECURE_HSTS_SECONDS = 31536000  # 1 year
-    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
-    SECURE_HSTS_PRELOAD = True
-    SECURE_CONTENT_TYPE_NOSNIFF = True
-    SECURE_BROWSER_XSS_FILTER = True
     X_FRAME_OPTIONS = 'DENY'
+else:
+    # Development settings - no security restrictions
+    SESSION_COOKIE_SECURE = False
+    CSRF_COOKIE_SECURE = False
+    SECURE_SSL_REDIRECT = False
 
 # CSRF trusted origins
-CSRF_TRUSTED_ORIGINS = []
-if RENDER_EXTERNAL_HOSTNAME:
-    CSRF_TRUSTED_ORIGINS.append(f'https://{RENDER_EXTERNAL_HOSTNAME}')
-CSRF_TRUSTED_ORIGINS.extend([
-    'http://localhost:8000',
-    'http://127.0.0.1:8000'
-])
+CSRF_TRUSTED_ORIGINS = [
+    'http://localhost:8000', 
+    'http://127.0.0.1:8000',
+    'https://codemaster-jlup.onrender.com',  # Your production domain
+]
 
-# Gemini AI API Configuration - Use environment variable
-GEMINI_API_KEY = os.environ.get('GEMINI_API_KEY')
+# Add any additional domains from environment
+if os.environ.get('RENDER_EXTERNAL_HOSTNAME'):
+    CSRF_TRUSTED_ORIGINS.append(f"https://{os.environ['RENDER_EXTERNAL_HOSTNAME']}")
+
+# Gemini AI API Configuration
+GEMINI_API_KEY = os.environ.get('GEMINI_API_KEY', 'AIzaSyD9y3Gxll2GKFRnS6ErpxesSo2SuJOsyKs')
 
 # Additional AI Configuration
 AI_SETTINGS = {
@@ -153,24 +176,26 @@ AI_SETTINGS = {
     'REQUEST_TIMEOUT': 30,  # seconds
 }
 
-# Logging configuration for production
-if not DEBUG:
-    LOGGING = {
-        'version': 1,
-        'disable_existing_loggers': False,
-        'handlers': {
-            'console': {
-                'class': 'logging.StreamHandler',
-            },
+# Logging configuration for debugging in production
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
         },
-        'root': {
+    },
+    'root': {
+        'handlers': ['console'],
+        'level': 'INFO',
+    },
+    'loggers': {
+        'django.db.backends': {
+            'level': 'DEBUG',
             'handlers': ['console'],
-        },
-        'loggers': {
-            'django': {
-                'handlers': ['console'],
-                'level': 'INFO',
-                'propagate': False,
-            },
-        },
-    }
+        } if DEBUG else {
+            'level': 'INFO',
+            'handlers': ['console'],
+        }
+    },
+}
