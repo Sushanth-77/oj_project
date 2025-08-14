@@ -32,6 +32,8 @@ RUN chmod -R 755 /app && \
     chmod -R 777 /app/logs /app/media
 
 # Run build commands
+RUN python manage.py makemigrations
+RUN python manage.py migrate
 RUN python manage.py collectstatic --noinput --clear
 
 EXPOSE 8000
