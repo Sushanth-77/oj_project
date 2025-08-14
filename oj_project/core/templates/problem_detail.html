@@ -295,6 +295,7 @@
             margin-top: 1.5rem;
             display: flex;
             gap: 1rem;
+            flex-wrap: wrap;
         }
 
         .btn-submit {
@@ -325,6 +326,138 @@
 
         .btn-test:hover {
             background: #475569;
+        }
+
+        .btn-ai-review {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 0.75rem 1.5rem;
+            border: none;
+            border-radius: 6px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .btn-ai-review:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 8px rgba(102, 126, 234, 0.3);
+        }
+
+        .btn-ai-review:disabled {
+            background: var(--border-color);
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        .btn-ai-review .spinner {
+            display: none;
+            width: 16px;
+            height: 16px;
+            border: 2px solid transparent;
+            border-top: 2px solid white;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-right: 0.5rem;
+        }
+
+        .btn-ai-review.loading .spinner {
+            display: inline-block;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* AI Review Modal */
+        .ai-review-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+            backdrop-filter: blur(4px);
+        }
+
+        .ai-review-content {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: var(--card-bg);
+            border-radius: 12px;
+            padding: 2rem;
+            max-width: 800px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+            box-shadow: var(--shadow-lg);
+        }
+
+        .ai-review-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .ai-review-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .close-modal {
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            color: var(--text-secondary);
+            cursor: pointer;
+            padding: 0.25rem;
+            border-radius: 4px;
+            transition: all 0.2s;
+        }
+
+        .close-modal:hover {
+            background: var(--bg-color);
+            color: var(--text-primary);
+        }
+
+        .ai-review-body {
+            line-height: 1.6;
+            color: var(--text-primary);
+        }
+
+        .ai-review-body pre {
+            background: var(--bg-color);
+            padding: 1rem;
+            border-radius: 6px;
+            overflow-x: auto;
+            font-size: 0.875rem;
+        }
+
+        .ai-review-body h3 {
+            margin-top: 1.5rem;
+            margin-bottom: 0.75rem;
+            color: var(--primary-color);
+        }
+
+        .ai-review-body h4 {
+            margin-top: 1rem;
+            margin-bottom: 0.5rem;
+            color: var(--text-primary);
         }
 
         /* Previous Submissions */
@@ -361,6 +494,26 @@
         .status-pending {
             color: var(--warning-color);
             font-weight: 500;
+        }
+
+        .submission-row:hover {
+            background: var(--bg-color);
+        }
+
+        .ai-review-btn-small {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 0.25rem 0.5rem;
+            border: none;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .ai-review-btn-small:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 2px 4px rgba(102, 126, 234, 0.3);
         }
 
         /* Messages */
@@ -408,6 +561,15 @@
 
             .nav-links {
                 gap: 1rem;
+            }
+
+            .submit-section {
+                flex-direction: column;
+            }
+
+            .ai-review-content {
+                width: 95%;
+                padding: 1.5rem;
             }
         }
     </style>
@@ -503,11 +665,11 @@
                                 <div class="test-case-row">
                                     <div class="test-input">
                                         <div class="test-label">Input</div>
-                                        <div class="test-data">{{ testcase.input_data|default:"No input" }}</div>
+                                        <div class="test-data">{{ testcase.input|default:"No input" }}</div>
                                     </div>
                                     <div class="test-output">
                                         <div class="test-label">Expected Output</div>
-                                        <div class="test-data">{{ testcase.expected_output|default:"No output" }}</div>
+                                        <div class="test-data">{{ testcase.output|default:"No output" }}</div>
                                     </div>
                                 </div>
                             </div>
@@ -529,7 +691,7 @@
                 <div class="panel-content">
                     {% if user.is_authenticated %}
                     <!-- Submission Form -->
-                    <form method="post" action="{% url 'core:submit_solution' problem.short_code %}">
+                    <form method="post" action="{% url 'core:problem_detail' problem.short_code %}">
                         {% csrf_token %}
                         
                         <!-- Language Selector -->
@@ -562,6 +724,10 @@ solve()
                             <button type="submit" name="action" value="test" class="btn-test">
                                 <i class="fas fa-play"></i> Test Code
                             </button>
+                            <button type="button" id="ai-review-btn" class="btn-ai-review">
+                                <span class="spinner"></span>
+                                <i class="fas fa-robot"></i> Get AI Review
+                            </button>
                         </div>
                     </form>
 
@@ -578,28 +744,34 @@ solve()
                                         <th>Time</th>
                                         <th>Language</th>
                                         <th>Status</th>
-                                        <th>Score</th>
+                                        <th>Actions</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     {% for submission in user_submissions %}
-                                    <tr>
-                                        <td>{{ submission.submitted_at|date:"M d, H:i" }}</td>
+                                    <tr class="submission-row">
+                                        <td>{{ submission.submitted|date:"M d, H:i" }}</td>
                                         <td>{{ submission.get_language_display }}</td>
                                         <td>
-                                            {% if submission.status == 'AC' %}
+                                            {% if submission.verdict == 'AC' %}
                                                 <span class="status-accepted">✓ Accepted</span>
-                                            {% elif submission.status == 'WA' %}
+                                            {% elif submission.verdict == 'WA' %}
                                                 <span class="status-rejected">✗ Wrong Answer</span>
-                                            {% elif submission.status == 'TLE' %}
+                                            {% elif submission.verdict == 'TLE' %}
                                                 <span class="status-rejected">⏰ Time Limit</span>
-                                            {% elif submission.status == 'RE' %}
+                                            {% elif submission.verdict == 'RE' %}
                                                 <span class="status-rejected">💥 Runtime Error</span>
+                                            {% elif submission.verdict == 'CE' %}
+                                                <span class="status-rejected">⚠️ Compilation Error</span>
                                             {% else %}
-                                                <span class="status-pending">⏳ {{ submission.get_status_display }}</span>
+                                                <span class="status-pending">⏳ {{ submission.get_verdict_display }}</span>
                                             {% endif %}
                                         </td>
-                                        <td>{{ submission.score|default:"-" }}</td>
+                                        <td>
+                                            <button class="ai-review-btn-small" data-submission-id="{{ submission.id }}">
+                                                <i class="fas fa-robot"></i> AI Review
+                                            </button>
+                                        </td>
                                     </tr>
                                     {% endfor %}
                                 </tbody>
@@ -617,6 +789,24 @@ solve()
                     </div>
                     {% endif %}
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- AI Review Modal -->
+    <div id="ai-review-modal" class="ai-review-modal">
+        <div class="ai-review-content">
+            <div class="ai-review-header">
+                <h3 class="ai-review-title">
+                    <i class="fas fa-robot"></i>
+                    AI Code Review
+                </h3>
+                <button class="close-modal" onclick="closeAIReviewModal()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div id="ai-review-body" class="ai-review-body">
+                <!-- AI review content will be loaded here -->
             </div>
         </div>
     </div>
@@ -692,6 +882,169 @@ solve()
                         return false;
                     }
                 });
+            }
+
+            // AI Review button handler
+            const aiReviewBtn = document.getElementById('ai-review-btn');
+            if (aiReviewBtn) {
+                aiReviewBtn.addEventListener('click', function() {
+                    if (codeEditor) {
+                        codeEditor.save(); // Save CodeMirror content to textarea
+                    }
+                    
+                    const code = document.getElementById('code-editor').value.trim();
+                    if (!code) {
+                        alert('Please enter your solution code first.');
+                        return;
+                    }
+                    
+                    getCurrentCodeAIReview();
+                });
+            }
+
+            // Event delegation for submission AI review buttons
+            document.addEventListener('click', function(e) {
+                if (e.target.closest('.ai-review-btn-small')) {
+                    const button = e.target.closest('.ai-review-btn-small');
+                    const submissionId = button.getAttribute('data-submission-id');
+                    if (submissionId) {
+                        getSubmissionAIReview(submissionId);
+                    }
+                }
+            });
+        });
+
+        // AI Review Functions
+        function getCurrentCodeAIReview() {
+            const code = document.getElementById('code-editor').value.trim();
+            const language = document.getElementById('language').value;
+            
+            if (!code) {
+                alert('Please enter your solution code first.');
+                return;
+            }
+            
+            // Show loading state
+            const btn = document.getElementById('ai-review-btn');
+            btn.classList.add('loading');
+            btn.disabled = true;
+            
+            // Create a temporary submission for AI review
+            const formData = new FormData();
+            formData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
+            formData.append('solution_code', code);
+            formData.append('language', language);
+            formData.append('action', 'ai_review_only');
+            
+            fetch('{% url "core:problem_detail" problem.short_code %}', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success && data.submission_id) {
+                    // Now get AI review for this submission
+                    getSubmissionAIReview(data.submission_id);
+                } else {
+                    throw new Error(data.error || 'Failed to create submission for AI review');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Error getting AI review: ' + error.message);
+            })
+            .finally(() => {
+                // Reset button state
+                btn.classList.remove('loading');
+                btn.disabled = false;
+            });
+        }
+        
+        function getSubmissionAIReview(submissionId) {
+            // Show loading in modal
+            showAIReviewModal('Loading AI review...');
+            
+            fetch(`/compiler/ai-review/${submissionId}/`, {
+                method: 'GET',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'Content-Type': 'application/json',
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showAIReviewModal(data.review);
+                } else {
+                    throw new Error(data.error || 'Unknown error occurred');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showAIReviewModal(`
+                    <div style="color: var(--danger-color); text-align: center; padding: 2rem;">
+                        <i class="fas fa-exclamation-triangle" style="font-size: 2rem; margin-bottom: 1rem;"></i>
+                        <h4>AI Review Error</h4>
+                        <p>${error.message}</p>
+                        <p style="font-size: 0.875rem; margin-top: 1rem; color: var(--text-secondary);">
+                            Please try again later or contact support if the problem persists.
+                        </p>
+                    </div>
+                `);
+            });
+        }
+        
+        function showAIReviewModal(content) {
+            const modal = document.getElementById('ai-review-modal');
+            const body = document.getElementById('ai-review-body');
+            
+            if (content === 'Loading AI review...') {
+                body.innerHTML = `
+                    <div style="text-align: center; padding: 3rem;">
+                        <div style="display: inline-block; width: 40px; height: 40px; border: 4px solid var(--border-color); border-top: 4px solid var(--primary-color); border-radius: 50%; animation: spin 1s linear infinite; margin-bottom: 1rem;"></div>
+                        <p style="color: var(--text-secondary);">AI is analyzing your code...</p>
+                        <p style="font-size: 0.875rem; color: var(--text-secondary); margin-top: 0.5rem;">This may take a few moments</p>
+                    </div>
+                `;
+            } else {
+                // Convert markdown-like content to HTML
+                let htmlContent = content
+                    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                    .replace(/\*(.*?)\*/g, '<em>$1</em>')
+                    .replace(/`(.*?)`/g, '<code style="background: var(--bg-color); padding: 0.25rem 0.5rem; border-radius: 4px; font-family: monospace;">$1</code>')
+                    .replace(/\n\n/g, '</p><p>')
+                    .replace(/\n/g, '<br>');
+                
+                // Wrap in paragraphs
+                htmlContent = '<p>' + htmlContent + '</p>';
+                
+                // Handle code blocks
+                htmlContent = htmlContent.replace(/```([\s\S]*?)```/g, '<pre style="background: var(--bg-color); padding: 1rem; border-radius: 6px; overflow-x: auto; font-size: 0.875rem; margin: 1rem 0;"><code>$1</code></pre>');
+                
+                body.innerHTML = htmlContent;
+            }
+            
+            modal.style.display = 'block';
+            document.body.style.overflow = 'hidden';
+        }
+        
+        function closeAIReviewModal() {
+            const modal = document.getElementById('ai-review-modal');
+            modal.style.display = 'none';
+            document.body.style.overflow = 'auto';
+        }
+        
+        // Close modal when clicking outside
+        document.getElementById('ai-review-modal').addEventListener('click', function(e) {
+            if (e.target === this) {
+                closeAIReviewModal();
+            }
+        });
+        
+        // Close modal with Escape key
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                closeAIReviewModal();
             }
         });
     </script>

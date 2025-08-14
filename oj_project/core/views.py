@@ -3,8 +3,10 @@ from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.db.models import Q
+from django.http import JsonResponse
 from .models import Problem, Submission, TestCase
 from collections import defaultdict
+import json
 
 def problems_list(request):
     """Display list of all problems with user progress and search functionality"""
@@ -160,6 +162,11 @@ def problem_detail(request, short_code):
         action = request.POST.get('action', 'submit')
         
         if not code_text:
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return JsonResponse({
+                    'success': False,
+                    'error': 'Code cannot be empty'
+                })
             messages.error(request, 'Code cannot be empty')
             return render(request, 'problem_detail.html', context)
         
@@ -167,14 +174,31 @@ def problem_detail(request, short_code):
         language_mapping = {
             'python': 'py',
             'cpp': 'cpp',
-            'java': 'java',  # Note: 'java' is not in LANGUAGE_CHOICES, you might want to add it
+            'java': 'py',  # Fallback to Python for now
             'c': 'c'
         }
         db_language = language_mapping.get(language, 'py')
         
-        # For now, we'll create a simple submission without actual code execution
-        # In a real system, you'd run the code against test cases here
+        # For AI review only, create submission but don't show regular messages
+        if action == 'ai_review_only':
+            # Simple mock evaluation for AI review
+            verdict = 'AC' if len(code_text.strip()) > 20 else 'WA'
+            
+            submission = Submission.objects.create(
+                problem=problem,
+                user=request.user,
+                code_text=code_text,
+                language=db_language,
+                verdict=verdict
+            )
+            
+            return JsonResponse({
+                'success': True,
+                'submission_id': submission.id,
+                'message': 'Submission created for AI review'
+            })
         
+        # For regular submission or testing
         # Simple mock evaluation - just check if code is not empty and has some content
         verdict = 'AC' if len(code_text.strip()) > 20 else 'WA'  # Very basic check
         
