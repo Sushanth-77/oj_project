@@ -22,15 +22,18 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY . /app/
 
 # Create necessary directories
-RUN mkdir -p /app/static /app/media /app/logs /app/temp
+RUN mkdir -p /app/staticfiles /app/media /app/logs
+
+# Make build script executable
+RUN chmod +x /app/build.sh
 
 # Set proper permissions
 RUN chmod -R 755 /app && \
-    chmod -R 777 /app/temp /app/logs /app/media
+    chmod -R 777 /app/logs /app/media
 
-# Collect static files
+# Run build commands
 RUN python manage.py collectstatic --noinput --clear
 
 EXPOSE 8000
 
-CMD ["gunicorn", "--bind", "0.0.0.0:8000", "--workers", "3", "oj_project.wsgi:application"]
+CMD ["gunicorn", "--bind", "0.0.0.0:8000", "--workers", "4", "oj_project.wsgi:application"]
