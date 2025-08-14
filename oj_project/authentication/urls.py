@@ -1,10 +1,9 @@
 # authentication/urls.py
 from django.urls import path
-from .views import register_user, login_user, logout_user,debug_info, test_registration
+from .views import register_user, login_user, logout_user, debug_info, test_registration
 
 app_name = 'authentication'
 
-# Add these to authentication/urls.py
 urlpatterns = [
     path('register/', register_user, name='register-user'),
     path('login/', login_user, name='login-user'),
