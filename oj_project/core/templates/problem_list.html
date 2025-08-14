@@ -81,7 +81,8 @@
             transition: color 0.2s;
         }
 
-        .nav-link:hover, .nav-link.active {
+        .nav-link:hover,
+        .nav-link.active {
             color: var(--primary-color);
         }
 
@@ -203,9 +204,17 @@
             border-left: 4px solid;
         }
 
-        .stat-item.easy { border-left-color: var(--success-color); }
-        .stat-item.medium { border-left-color: var(--warning-color); }
-        .stat-item.hard { border-left-color: var(--danger-color); }
+        .stat-item.easy {
+            border-left-color: var(--success-color);
+        }
+
+        .stat-item.medium {
+            border-left-color: var(--warning-color);
+        }
+
+        .stat-item.hard {
+            border-left-color: var(--danger-color);
+        }
 
         .stat-label {
             font-weight: 500;
@@ -231,9 +240,17 @@
             transition: width 0.8s ease;
         }
 
-        .progress-fill.easy { background: var(--success-color); }
-        .progress-fill.medium { background: var(--warning-color); }
-        .progress-fill.hard { background: var(--danger-color); }
+        .progress-fill.easy {
+            background: var(--success-color);
+        }
+
+        .progress-fill.medium {
+            background: var(--warning-color);
+        }
+
+        .progress-fill.hard {
+            background: var(--danger-color);
+        }
 
         /* Quick Stats */
         .quick-stats {
@@ -411,11 +428,12 @@
         .custom-table td:not(:nth-child(2)) {
             cursor: pointer;
         }
+
         @media (max-width: 768px) {
             .dashboard-grid {
                 grid-template-columns: 1fr;
             }
-            
+
             .stats-grid {
                 grid-template-columns: 1fr;
             }
@@ -444,7 +462,7 @@
             .problems-card {
                 padding: 1rem;
             }
-            
+
             .search-section {
                 padding: 1rem;
             }
@@ -461,14 +479,14 @@
                     <i class="fas fa-code"></i>
                     CodeJudge
                 </a>
-                
+
                 <nav class="nav-links">
                     <a href="{% url 'core:problems_list' %}" class="nav-link active">Problems</a>
                     {% if user.is_authenticated %}
                     <a href="{% url 'core:submissions_list' %}" class="nav-link">My Submissions</a>
                     {% endif %}
                 </nav>
-                
+
                 <div class="user-profile">
                     {% if user.is_authenticated %}
                     <div class="user-avatar">{{ user.username|first|upper }}</div>
@@ -494,11 +512,11 @@
     <div class="container" style="margin-top: 1.5rem;">
         <!-- Messages -->
         {% if messages %}
-            {% for message in messages %}
-                <div class="alert alert-{{ message.tags|default:'info' }}">
-                    {{ message }}
-                </div>
-            {% endfor %}
+        {% for message in messages %}
+        <div class="alert alert-{{ message.tags|default:'info' }}">
+            {{ message }}
+        </div>
+        {% endfor %}
         {% endif %}
 
         <!-- Search Section -->
@@ -507,11 +525,8 @@
                 <div style="display: flex; align-items: center;">
                     <div class="search-container">
                         <i class="fas fa-search search-icon"></i>
-                        <input type="text" 
-                               name="search" 
-                               class="search-input" 
-                               placeholder="Search problems..." 
-                               value="{{ search_query }}">
+                        <input type="text" name="search" class="search-input" placeholder="Search problems..."
+                            value="{{ search_query }}">
                     </div>
                     {% if search_query %}
                     <a href="{% url 'core:problems_list' %}" class="clear-search">
@@ -542,7 +557,8 @@
                             <div class="stat-label">Easy</div>
                             <div class="stat-value">{{ user_progress.easy_completed }}/{{ easy_count }}</div>
                             <div class="progress-bar">
-                                <div class="progress-fill easy" data-easy-completed="{{ user_progress.easy_completed }}" data-easy-total="{{ easy_count }}"></div>
+                                <div class="progress-fill easy" data-easy-completed="{{ user_progress.easy_completed }}"
+                                    data-easy-total="{{ easy_count }}"></div>
                             </div>
                         </div>
                     </div>
@@ -551,7 +567,9 @@
                             <div class="stat-label">Medium</div>
                             <div class="stat-value">{{ user_progress.medium_completed }}/{{ medium_count }}</div>
                             <div class="progress-bar">
-                                <div class="progress-fill medium" data-medium-completed="{{ user_progress.medium_completed }}" data-medium-total="{{ medium_count }}"></div>
+                                <div class="progress-fill medium"
+                                    data-medium-completed="{{ user_progress.medium_completed }}"
+                                    data-medium-total="{{ medium_count }}"></div>
                             </div>
                         </div>
                     </div>
@@ -560,7 +578,8 @@
                             <div class="stat-label">Hard</div>
                             <div class="stat-value">{{ user_progress.hard_completed }}/{{ hard_count }}</div>
                             <div class="progress-bar">
-                                <div class="progress-fill hard" data-hard-completed="{{ user_progress.hard_completed }}" data-hard-total="{{ hard_count }}"></div>
+                                <div class="progress-fill hard" data-hard-completed="{{ user_progress.hard_completed }}"
+                                    data-hard-total="{{ hard_count }}"></div>
                             </div>
                         </div>
                     </div>
@@ -585,17 +604,18 @@
                     <div class="quick-stat">
                         <div class="quick-stat-number">
                             {% with total_problems=problems|length solved_count=user_progress.solved_problems|length %}
-                                {% if total_problems > 0 %}
-                                    {% widthratio solved_count total_problems 100 %}%
-                                {% else %}
-                                    0%
-                                {% endif %}
+                            {% if total_problems > 0 %}
+                            {% widthratio solved_count total_problems 100 %}%
+                            {% else %}
+                            0%
+                            {% endif %}
                             {% endwith %}
                         </div>
                         <div class="quick-stat-label">Success Rate</div>
                     </div>
                     <div class="quick-stat">
-                        <div class="quick-stat-number">{{ problems|length|add:"-"|add:user_progress.solved_problems|length }}</div>
+                        <div class="quick-stat-number">{{
+                            problems|length|add:"-"|add:user_progress.solved_problems|length }}</div>
                         <div class="quick-stat-label">Remaining</div>
                     </div>
                 </div>
@@ -609,7 +629,7 @@
                 <i class="fas fa-list"></i>
                 {% if search_query %}Search Results{% else %}Problem List{% endif %}
             </h3>
-            
+
             <div class="table-container">
                 <table class="custom-table">
                     <thead>
@@ -623,10 +643,12 @@
                     </thead>
                     <tbody>
                         {% for problem in problems %}
-                        <tr class="problem-row {% if problem.short_code in user_progress.solved_problems %}solved{% endif %}" 
+                        <tr class="problem-row {% if problem.short_code in user_progress.solved_problems %}solved{% endif %}"
                             data-problem-code="{{ problem.short_code }}"
                             data-problem-url="{% url 'core:problem_detail' problem.short_code %}">
-                            <td onclick="navigateToProblem('{{ problem.short_code }}')">{{ forloop.counter }}</td>
+                            <td onclick="navigateToProblem('{{ problem.short_code }}')">
+                                {{ forloop.counter }}
+                            </td>
                             <td>
                                 <a href="{% url 'core:problem_detail' problem.short_code %}" class="problem-name">
                                     {{ problem.name }}
@@ -635,11 +657,11 @@
                             </td>
                             <td onclick="navigateToProblem('{{ problem.short_code }}')">
                                 {% if problem.difficulty == 'E' %}
-                                    <span class="difficulty-badge easy">Easy</span>
+                                <span class="difficulty-badge easy">Easy</span>
                                 {% elif problem.difficulty == 'M' %}
-                                    <span class="difficulty-badge medium">Medium</span>
+                                <span class="difficulty-badge medium">Medium</span>
                                 {% else %}
-                                    <span class="difficulty-badge hard">Hard</span>
+                                <span class="difficulty-badge hard">Hard</span>
                                 {% endif %}
                             </td>
                             <td onclick="navigateToProblem('{{ problem.short_code }}')">
@@ -649,13 +671,13 @@
                             </td>
                             <td onclick="navigateToProblem('{{ problem.short_code }}')">
                                 {% if problem.short_code in user_progress.solved_problems %}
-                                    <span class="status-badge solved">
-                                        <i class="fas fa-check"></i>
-                                    </span>
+                                <span class="status-badge solved">
+                                    <i class="fas fa-check"></i>
+                                </span>
                                 {% else %}
-                                    <span class="status-badge unsolved">
-                                        <i class="far fa-circle"></i>
-                                    </span>
+                                <span class="status-badge unsolved">
+                                    <i class="far fa-circle"></i>
+                                </span>
                                 {% endif %}
                             </td>
                         </tr>
@@ -665,11 +687,11 @@
                                 <div class="empty-state">
                                     <i class="fas fa-search"></i>
                                     {% if search_query %}
-                                        <h5>No problems found</h5>
-                                        <p>Try adjusting your search terms</p>
+                                    <h5>No problems found</h5>
+                                    <p>Try adjusting your search terms</p>
                                     {% else %}
-                                        <h5>No problems available</h5>
-                                        <p>Check back later for new problems!</p>
+                                    <h5>No problems available</h5>
+                                    <p>Check back later for new problems!</p>
                                     {% endif %}
                                 </div>
                             </td>
@@ -683,23 +705,19 @@
 
     <!-- Bootstrap JS -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    
-            <script>
+
+    <script>
         // Simple navigation function
-        function navigateToProblem(shortCode) {
-            console.log('Navigating to problem:', shortCode);
-            // Build URL manually to avoid Django URL issues
-            window.location.href = '/problems/problem/' + shortCode + '/';
-        }
         
-        document.addEventListener('DOMContentLoaded', function() {
+
+        document.addEventListener('DOMContentLoaded', function () {
             // Initialize progress bars
             initializeProgressBars();
 
             // Search functionality
             const searchForm = document.querySelector('form');
             if (searchForm) {
-                searchForm.addEventListener('submit', function(e) {
+                searchForm.addEventListener('submit', function (e) {
                     const searchInput = this.querySelector('input[name="search"]');
                     if (!searchInput.value.trim()) {
                         e.preventDefault();
