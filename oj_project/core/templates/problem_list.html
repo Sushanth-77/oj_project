@@ -496,7 +496,6 @@
                             <i class="fas fa-chevron-down"></i>
                         </button>
                         <ul class="dropdown-menu">
-                            <li><a class="dropdown-item" href="{% url 'core:submissions_list' %}">Profile</a></li>
                             <li><a class="dropdown-item" href="{% url 'authentication:logout-user' %}">Logout</a></li>
                         </ul>
                     </div>
@@ -594,28 +593,25 @@
                 </h3>
                 <div class="stats-grid">
                     <div class="quick-stat">
-                        <div class="quick-stat-number">{{ problems|length }}</div>
+                        <div class="quick-stat-number">{{ total_problems_count }}</div>
                         <div class="quick-stat-label">Total Problems</div>
                     </div>
                     <div class="quick-stat">
-                        <div class="quick-stat-number">{{ user_progress.solved_problems|length }}</div>
+                        <div class="quick-stat-number">{{ user_progress.total_solved }}</div>
                         <div class="quick-stat-label">Solved</div>
                     </div>
                     <div class="quick-stat">
                         <div class="quick-stat-number">
-                            {% with total_problems=problems|length solved_count=user_progress.solved_problems|length %}
-                            {% if total_problems > 0 %}
-                            {% widthratio solved_count total_problems 100 %}%
+                            {% if total_problems_count > 0 %}
+                            {% widthratio user_progress.total_solved total_problems_count 100 %}%
                             {% else %}
                             0%
                             {% endif %}
-                            {% endwith %}
                         </div>
-                        <div class="quick-stat-label">Success Rate</div>
+                        <div class="quick-stat-label">Completion %</div>
                     </div>
                     <div class="quick-stat">
-                        <div class="quick-stat-number">{{
-                            problems|length|add:"-"|add:user_progress.solved_problems|length }}</div>
+                        <div class="quick-stat-number">{{ user_progress.remaining_problems }}</div>
                         <div class="quick-stat-label">Remaining</div>
                     </div>
                 </div>
@@ -707,12 +703,16 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 
     <script>
-        // Simple navigation function
-        
+        function navigateToProblem(problemCode) {
+            window.location.href = "{% url 'core:problem_detail' 'PLACEHOLDER' %}".replace('PLACEHOLDER', problemCode);
+        }
 
         document.addEventListener('DOMContentLoaded', function () {
             // Initialize progress bars
             initializeProgressBars();
+            
+            // Calculate and display remaining problems correctly
+            updateRemainingProblems();
 
             // Search functionality
             const searchForm = document.querySelector('form');
@@ -760,6 +760,19 @@
                 const total = parseInt(hardFill.getAttribute('data-hard-total')) || 0;
                 const percentage = total > 0 ? (completed / total) * 100 : 0;
                 hardFill.style.width = percentage + '%';
+            }
+        }
+        
+        function updateRemainingProblems() {
+            const totalProblemsElement = document.querySelector('.quick-stat-number');
+            const solvedProblemsElement = document.querySelectorAll('.quick-stat-number')[1];
+            const remainingElement = document.querySelectorAll('.quick-stat-number')[3];
+            
+            if (totalProblemsElement && solvedProblemsElement && remainingElement) {
+                const totalProblems = parseInt(totalProblemsElement.textContent) || 0;
+                const solvedProblems = parseInt(solvedProblemsElement.textContent) || 0;
+                const remaining = totalProblems - solvedProblems;
+                remainingElement.textContent = remaining;
             }
         }
     </script>

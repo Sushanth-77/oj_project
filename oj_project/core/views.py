@@ -27,13 +27,21 @@ def problems_list(request):
     # Order problems
     problems = problems.order_by('difficulty', 'name')
     
+    # Get counts for all problems (not just filtered ones)
+    all_problems = Problem.objects.all()
+    easy_count = all_problems.filter(difficulty='E').count()
+    medium_count = all_problems.filter(difficulty='M').count()
+    hard_count = all_problems.filter(difficulty='H').count()
+    total_problems_count = all_problems.count()
+    
     # Initialize context data
     context = {
         'problems': problems,
         'search_query': search_query,
-        'easy_count': Problem.objects.filter(difficulty='E').count(),
-        'medium_count': Problem.objects.filter(difficulty='M').count(),
-        'hard_count': Problem.objects.filter(difficulty='H').count(),
+        'easy_count': easy_count,
+        'medium_count': medium_count,
+        'hard_count': hard_count,
+        'total_problems_count': total_problems_count,
     }
     
     # If user is authenticated, calculate their progress
@@ -47,7 +55,6 @@ def problems_list(request):
         solved_problems = set(accepted_submissions)
         
         # Count solved problems by difficulty (from all problems, not just filtered)
-        all_problems = Problem.objects.all()
         easy_solved = 0
         medium_solved = 0
         hard_solved = 0
@@ -61,11 +68,16 @@ def problems_list(request):
                 elif problem.difficulty == 'H':
                     hard_solved += 1
         
+        total_solved = len(solved_problems)
+        remaining_problems = total_problems_count - total_solved
+        
         user_progress = {
             'solved_problems': solved_problems,
             'easy_completed': easy_solved,
             'medium_completed': medium_solved,
             'hard_completed': hard_solved,
+            'total_solved': total_solved,
+            'remaining_problems': remaining_problems,
         }
         
         context['user_progress'] = user_progress
@@ -76,12 +88,17 @@ def problems_list(request):
             'easy_completed': 0,
             'medium_completed': 0,
             'hard_completed': 0,
+            'total_solved': 0,
+            'remaining_problems': total_problems_count,
         }
     
     return render(request, 'problem_list.html', context)
 
 def get_user_progress(user):
     """Helper function to calculate user progress"""
+    all_problems = Problem.objects.all()
+    total_problems_count = all_problems.count()
+    
     if user.is_authenticated:
         # Get all accepted submissions for this user
         accepted_submissions = Submission.objects.filter(
@@ -92,7 +109,6 @@ def get_user_progress(user):
         solved_problems = set(accepted_submissions)
         
         # Count solved problems by difficulty
-        all_problems = Problem.objects.all()
         easy_solved = 0
         medium_solved = 0
         hard_solved = 0
@@ -106,11 +122,16 @@ def get_user_progress(user):
                 elif problem.difficulty == 'H':
                     hard_solved += 1
         
+        total_solved = len(solved_problems)
+        remaining_problems = total_problems_count - total_solved
+        
         return {
             'solved_problems': solved_problems,
             'easy_completed': easy_solved,
             'medium_completed': medium_solved,
             'hard_completed': hard_solved,
+            'total_solved': total_solved,
+            'remaining_problems': remaining_problems,
         }
     else:
         # Default progress for non-authenticated users
@@ -119,6 +140,8 @@ def get_user_progress(user):
             'easy_completed': 0,
             'medium_completed': 0,
             'hard_completed': 0,
+            'total_solved': 0,
+            'remaining_problems': total_problems_count,
         }
 
 def problem_detail(request, short_code):

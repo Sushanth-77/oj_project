@@ -111,3 +111,14 @@ CSRF_COOKIE_SECURE = False
 SECURE_SSL_REDIRECT = False
 
 CSRF_TRUSTED_ORIGINS = ['http://localhost:8000', 'http://127.0.0.1:8000']
+
+# Gemini AI API Configuration
+GEMINI_API_KEY = 'AIzaSyD9y3Gxll2GKFRnS6ErpxesSo2SuJOsyKs'
+
+# Additional AI Configuration (optional)
+AI_SETTINGS = {
+    'GEMINI_MODEL': 'gemini-pro',
+    'MAX_TOKENS': 1000,
+    'TEMPERATURE': 0.7,
+    'REQUEST_TIMEOUT': 30,  # seconds
+}
