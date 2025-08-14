@@ -308,7 +308,6 @@
 
         .problem-row {
             transition: background-color 0.2s;
-            cursor: pointer;
         }
 
         .problem-row:hover {
@@ -324,6 +323,7 @@
             font-weight: 600;
             color: var(--text-primary);
             text-decoration: none;
+            cursor: pointer;
         }
 
         .problem-name:hover {
@@ -405,6 +405,11 @@
             background: rgba(239, 68, 68, 0.1);
             border-color: rgba(239, 68, 68, 0.2);
             color: var(--danger-color);
+        }
+
+        /* Add clickable cursor only to non-link cells */
+        .clickable-cell {
+            cursor: pointer;
         }
 
         /* Responsive Design */
@@ -620,16 +625,15 @@
                     </thead>
                     <tbody>
                         {% for problem in problems %}
-                        <tr class="problem-row {% if problem.short_code in user_progress.solved_problems %}solved{% endif %}" 
-                            data-url="{% url 'core:problem_detail' problem.short_code %}">
-                            <td>{{ forloop.counter }}</td>
+                        <tr class="problem-row {% if problem.short_code in user_progress.solved_problems %}solved{% endif %}">
+                            <td class="clickable-cell" data-url="{% url 'core:problem_detail' problem.short_code %}">{{ forloop.counter }}</td>
                             <td>
                                 <a href="{% url 'core:problem_detail' problem.short_code %}" class="problem-name">
                                     {{ problem.name }}
                                 </a>
                                 <div class="problem-code">{{ problem.short_code }}</div>
                             </td>
-                            <td>
+                            <td class="clickable-cell" data-url="{% url 'core:problem_detail' problem.short_code %}">
                                 {% if problem.difficulty == 'E' %}
                                     <span class="difficulty-badge easy">Easy</span>
                                 {% elif problem.difficulty == 'M' %}
@@ -638,12 +642,12 @@
                                     <span class="difficulty-badge hard">Hard</span>
                                 {% endif %}
                             </td>
-                            <td>
+                            <td class="clickable-cell" data-url="{% url 'core:problem_detail' problem.short_code %}">
                                 <span style="color: var(--text-secondary);">
                                     {{ problem.statement|truncatewords:12 }}
                                 </span>
                             </td>
-                            <td>
+                            <td class="clickable-cell" data-url="{% url 'core:problem_detail' problem.short_code %}">
                                 {% if problem.short_code in user_progress.solved_problems %}
                                     <span class="status-badge solved">
                                         <i class="fas fa-check"></i>
@@ -666,8 +670,7 @@
                                     {% else %}
                                         <h5>No problems available</h5>
                                         <p>Check back later for new problems!</p>
-                                    {% endif %}
-                                </div>
+                                    </div>
                             </td>
                         </tr>
                         {% endfor %}
@@ -685,13 +688,18 @@
             // Initialize progress bars
             initializeProgressBars();
             
-            // Problem row click handlers
-            document.querySelectorAll('.problem-row').forEach(row => {
-                row.addEventListener('click', function(e) {
-                    if (e.target.tagName.toLowerCase() === 'a') return;
+            // Only make non-link cells clickable
+            document.querySelectorAll('.clickable-cell').forEach(cell => {
+                cell.addEventListener('click', function(e) {
+                    // Don't trigger if clicked on a link or inside a link
+                    if (e.target.tagName.toLowerCase() === 'a' || e.target.closest('a')) {
+                        return;
+                    }
                     
                     const url = this.getAttribute('data-url');
-                    if (url) window.location.href = url;
+                    if (url) {
+                        window.location.href = url;
+                    }
                 });
             });
 
