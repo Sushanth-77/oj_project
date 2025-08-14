@@ -7,7 +7,7 @@
       href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css"
       rel="stylesheet"
     />
-    <title>Registration Form</title>
+    <title>Login Form</title>
     <style>
       body {
         background: linear-gradient(135deg, #e0eafc 0%, #cfdef3 100%);
@@ -92,9 +92,9 @@
       >
         {% csrf_token %}
         <h1 style="text-align: center">
-          <span style="color: green">SignUp</span>
+          <span style="color: green">Mysite</span>
         </h1>
-        <h3>Register</h3>
+        <h3>Login</h3>
         <hr />
         {% if messages %}
         <div class="alert alert-primary" role="alert">
@@ -124,8 +124,8 @@
             required
           />
         </div>
-        <p>Already have an account? <a href="{% url 'authentication:login-user' %}">Login</a></p>
-        <button type="submit" class="btn btn-primary">Submit</button>
+        <p>Don't have an account? <a href="{% url 'authentication:register-user' %}">Register</a></p>
+        <button type="submit" class="btn btn-primary">Login</button>
       </form>
     </div>
   </body>

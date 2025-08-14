@@ -1,0 +1,20 @@
+databases:
+  - name: oj_project_db
+    databaseName: oj_project_db
+    user: oj_project_user
+
+services:
+  - type: web
+    name: oj-project
+    runtime: python3
+    buildCommand: "./build.sh"
+    startCommand: "gunicorn oj_project.wsgi:application"
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: oj_project_db
+          property: connectionString
+      - key: SECRET_KEY
+        generateValue: true
+      - key: WEB_CONCURRENCY
+        value: 4
