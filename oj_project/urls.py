@@ -2,7 +2,7 @@
 from django.contrib import admin
 from django.urls import path, include
 from django.http import HttpResponse
-from django.shortcuts import render
+from django.shortcuts import render, redirect
 
 def home_view(request):
     """Home page view that renders the landing page"""
@@ -17,6 +17,7 @@ def test_view(request):
         <li><a href="/">Home (Landing Page)</a></li>
         <li><a href="/auth/login/">Login</a></li>
         <li><a href="/auth/register/">Register</a></li>
+        <li><a href="/problems/">Problems</a></li>
         <li><a href="/admin/">Admin</a></li>
     </ul>
     """)
@@ -28,4 +29,10 @@ urlpatterns = [
     
     # Authentication URLs
     path('auth/', include('authentication.urls')),
+    
+    # Core app URLs (problems, submissions, etc.)
+    path('problems/', include('core.urls')),  # This will handle /problems/ URLs
+    
+    # Compiler URLs
+    path('compiler/', include('compiler.urls')),
 ]

@@ -1,20 +1,12 @@
-# core/urls.py - Updated with separated apps
+# core/urls.py
 from django.urls import path
-from django.shortcuts import redirect
-from .views import problems_list, problem_detail, submissions_list
+from . import views
 
 app_name = 'core'
 
-# Root redirect function
-def home_redirect(request):
-    return redirect('/auth/register/')
-
 urlpatterns = [
-    # Root redirect
-    path('', home_redirect, name='home'),
-    
-    # Main application URLs
-    path('problems/', problems_list, name='problems_list'),
-    path('problem/<str:short_code>/', problem_detail, name='problem_detail'),
-    path('submissions/', submissions_list, name='submissions_list'),
+    path('', views.problems_list, name='problems_list'),
+    path('problems/', views.problems_list, name='problems_list'),
+    path('problem/<str:short_code>/', views.problem_detail, name='problem_detail'),
+    path('submissions/', views.submissions_list, name='submissions_list'),
 ]
