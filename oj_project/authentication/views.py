@@ -1,5 +1,3 @@
-
-# Create your views here.
 # authentication/views.py
 from django.shortcuts import render, redirect
 from django.contrib.auth.models import User
@@ -60,7 +58,7 @@ def login_user(request):
         
         login(request, user)
         messages.success(request, f'Welcome back, {user.username}!')
-        return redirect('/problems/')
+        return redirect('/problems/')  # This now correctly points to /problems/
     
     return render(request, 'login.html')
 

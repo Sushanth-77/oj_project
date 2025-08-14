@@ -25,6 +25,8 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'authentication',  # This exists in your project
+    'core',
+    'compiler',
 ]
 
 MIDDLEWARE = [
@@ -39,10 +41,16 @@ MIDDLEWARE = [
 
 ROOT_URLCONF = 'oj_project.urls'
 
+
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [BASE_DIR / 'templates'],
+        'DIRS': [
+            BASE_DIR / 'templates',
+            BASE_DIR / 'authentication' / 'templates',
+            BASE_DIR / 'core' / 'templates',
+            BASE_DIR / 'compiler' / 'templates',
+        ],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -54,7 +62,6 @@ TEMPLATES = [
         },
     },
 ]
-
 WSGI_APPLICATION = 'oj_project.wsgi.application'
 
 # Database - Simple SQLite for local development
