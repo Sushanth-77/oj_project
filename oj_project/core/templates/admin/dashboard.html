@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard - Online Judge</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .header {
+            text-align: center;
+            color: white;
+            margin-bottom: 40px;
+        }
+
+        .header h1 {
+            font-size: 3em;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            font-size: 1.2em;
+            opacity: 0.9;
+        }
+
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 30px;
+            margin-bottom: 40px;
+        }
+
+        .dashboard-card {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .dashboard-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 20px 40px rgba(0,0,0,0.15);
+        }
+
+        .card-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .card-icon {
+            font-size: 2.5em;
+            margin-right: 15px;
+        }
+
+        .card-title {
+            font-size: 1.3em;
+            color: #2c3e50;
+            font-weight: 600;
+        }
+
+        .card-stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(80px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .stat-item {
+            text-align: center;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 10px;
+        }
+
+        .stat-number {
+            font-size: 2em;
+            font-weight: bold;
+            color: #2c3e50;
+            display: block;
+        }
+
+        .stat-label {
+            font-size: 0.85em;
+            color: #6c757d;
+            margin-top: 5px;
+        }
+
+        .card-actions {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            padding: 12px 20px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: inline-block;
+            text-align: center;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.3);
+        }
+
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background: #545b62;
+        }
+
+        .recent-problems {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+        }
+
+        .recent-problems h2 {
+            color: #2c3e50;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .problems-list {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .problem-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px 0;
+            border-bottom: 1px solid #e9ecef;
+        }
+
+        .problem-item:last-child {
+            border-bottom: none;
+        }
+
+        .problem-info h4 {
+            color: #2c3e50;
+            margin-bottom: 5px;
+        }
+
+        .problem-meta {
+            font-size: 14px;
+            color: #6c757d;
+        }
+
+        .difficulty-badge {
+            padding: 4px 8px;
+            border-radius: 15px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .difficulty-easy { background: #d4edda; color: #155724; }
+        .difficulty-medium { background: #fff3cd; color: #856404; }
+        .difficulty-hard { background: #f8d7da; color: #721c24; }
+
+        .nav-links {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .nav-links a {
+            color: white;
+            text-decoration: none;
+            margin: 0 15px;
+            padding: 10px 20px;
+            border-radius: 25px;
+            background: rgba(255,255,255,0.1);
+            transition: background 0.3s ease;
+        }
+
+        .nav-links a:hover {
+            background: rgba(255,255,255,0.2);
+        }
+
+        @media (max-width: 768px) {
+            .header h1 { font-size: 2em; }
+            .card-stats { grid-template-columns: 1fr 1fr; }
+            .card-actions { justify-content: center; }
+            .problem-item { flex-direction: column; align-items: flex-start; gap: 10px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🛠️ Admin Dashboard</h1>
+            <p>Manage your online judge platform</p>
+        </div>
+
+        <div class="nav-links">
+            <a href="{% url 'core:problems_list' %}">🏠 Main Site</a>
+            <a href="{% url 'core:admin_problems_list' %}">📚 All Problems</a>
+            <a href="{% url 'core:admin_add_problem' %}">➕ Add Problem</a>
+        </div>
+
+        <div class="dashboard-grid">
+            <!-- Problems Overview Card -->
+            <div class="dashboard-card">
+                <div class="card-header">
+                    <div class="card-icon">📚</div>
+                    <div class="card-title">Problems Overview</div>
+                </div>
+                <div class="card-stats">
+                    <div class="stat-item">
+                        <span class="stat-number">{{ total_problems }}</span>
+                        <div class="stat-label">Total</div>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-number">{{ easy_count }}</span>
+                        <div class="stat-label">Easy</div>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-number">{{ medium_count }}</span>
+                        <div class="stat-label">Medium</div>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-number">{{ hard_count }}</span>
+                        <div class="stat-label">Hard</div>
+                    </div>
+                </div>
+                <div class="card-actions">
+                    <a href="{% url 'core:admin_add_problem' %}" class="btn btn-primary">Add New Problem</a>
+                    <a href="{% url 'core:admin_problems_list' %}" class="btn btn-secondary">Manage All</a>
+                </div>
+            </div>
+
+            <!-- Submissions Overview Card -->
+            <div class="dashboard-card">
+                <div class="card-header">
+                    <div class="card-icon">📊</div>
+                    <div class="card-title">Submissions Overview</div>
+                </div>
+                <div class="card-stats">
+                    <div class="stat-item">
+                        <span class="stat-number">{{ total_submissions }}</span>
+                        <div class="stat-label">Total Submissions</div>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-number">{% widthratio total_submissions 1 100 %}</span>
+                        <div class="stat-label">Avg per Problem</div>
+                    </div>
+                </div>
+                <div class="card-actions">
+                    <a href="/admin/core/submission/" class="btn btn-secondary">View All Submissions</a>
+                </div>
+            </div>
+
+            <!-- Quick Actions Card -->
+            <div class="dashboard-card">
+                <div class="card-header">
+                    <div class="card-icon">⚡</div>
+                    <div class="card-title">Quick Actions</div>
+                </div>
+                <div class="card-actions">
+                    <a href="{% url 'core:admin_add_problem' %}" class="btn btn-primary">➕ Add Problem</a>
+                    <a href="/admin/" class="btn btn-secondary">🛠️ Django Admin</a>
+                    <a href="{% url 'core:problems_list' %}" class="btn btn-secondary">👀 Preview Site</a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Recent Problems Section -->
+        <div class="recent-problems">
+            <h2>📋 Recent Problems</h2>
+            {% if problems %}
+                <div class="problems-list">
+                    {% for problem in problems %}
+                    <div class="problem-item">
+                        <div class="problem-info">
+                            <h4>{{ problem.name }}</h4>
+                            <div class="problem-meta">
+                                Code: {{ problem.short_code }} | 
+                                {{ problem.testcases.count }} test cases
+                            </div>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 15px;">
+                            <span class="difficulty-badge difficulty-{% if problem.difficulty == 'E' %}easy{% elif problem.difficulty == 'M' %}medium{% else %}hard{% endif %}">
+                                {% if problem.difficulty == 'E' %}Easy
+                                {% elif problem.difficulty == 'M' %}Medium
+                                {% else %}Hard{% endif %}
+                            </span>
+                            <div style="display: flex; gap: 10px;">
+                                <a href="{% url 'core:problem_detail' problem.short_code %}" class="btn btn-secondary" style="padding: 6px 12px; font-size: 12px;">View</a>
+                                <a href="{% url 'core:admin_edit_problem' problem.short_code %}" class="btn btn-primary" style="padding: 6px 12px; font-size: 12px;">Edit</a>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <div style="text-align: center; padding: 40px; color: #6c757d;">
+                    <div style="font-size: 3em; margin-bottom: 15px;">📚</div>
+                    <h3>No Problems Yet</h3>
+                    <p>Start by creating your first problem!</p>
+                    <br>
+                    <a href="{% url 'core:admin_add_problem' %}" class="btn btn-primary">Create First Problem</a>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <script>
+        // Add some interactive elements
+        document.addEventListener('DOMContentLoaded', function() {
+            // Animate cards on load
+            const cards = document.querySelectorAll('.dashboard-card, .recent-problems');
+            cards.forEach((card, index) => {
+                card.style.opacity = '0';
+                card.style.transform = 'translateY(20px)';
+                setTimeout(() => {
+                    card.style.transition = 'all 0.6s ease';
+                    card.style.opacity = '1';
+                    card.style.transform = 'translateY(0)';
+                }, index * 100);
+            });
+
+            // Add click animations to buttons
+            const buttons = document.querySelectorAll('.btn');
+            buttons.forEach(btn => {
+                btn.addEventListener('click', function(e) {
+                    const ripple = document.createElement('span');
+                    const rect = btn.getBoundingClientRect();
+                    const size = Math.max(rect.width, rect.height);
+                    ripple.style.width = ripple.style.height = size + 'px';
+                    ripple.style.left = (e.clientX - rect.left - size / 2) + 'px';
+                    ripple.style.top = (e.clientY - rect.top - size / 2) + 'px';
+                    ripple.style.position = 'absolute';
+                    ripple.style.borderRadius = '50%';
+                    ripple.style.background = 'rgba(255,255,255,0.3)';
+                    ripple.style.transform = 'scale(0)';
+                    ripple.style.animation = 'ripple 0.6s linear';
+                    ripple.style.pointerEvents = 'none';
+                    
+                    btn.style.position = 'relative';
+                    btn.style.overflow = 'hidden';
+                    btn.appendChild(ripple);
+                    
+                    setTimeout(() => ripple.remove(), 600);
+                });
+            });
+        });
+
+        // Add CSS animation for ripple effect
+        const style = document.createElement('style');
+        style.textContent = `
+            @keyframes ripple {
+                to {
+                    transform: scale(4);
+                    opacity: 0;
+                }
+            }
+        `;
+        document.head.appendChild(style);
+    </script>
+</body>
+</html>
