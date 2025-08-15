@@ -35,6 +35,15 @@ ENV DJANGO_SETTINGS_MODULE=oj_project.settings
 
 WORKDIR /app/oj_project
 
+# Force create migrations and migrate during build (using SQLite first)
+RUN python manage.py makemigrations --settings=oj_project.build_settings
+RUN python manage.py migrate --settings=oj_project.build_settings
+RUN python manage.py collectstatic --noinput --settings=oj_project.build_settings
+
 EXPOSE 8000
 
-CMD ["gunicorn", "--bind", "0.0.0.0:8000", "--workers", "4", "oj_project.wsgi:application"]
+# Copy startup script
+COPY startup.sh /app/startup.sh
+RUN chmod +x /app/startup.sh
+
+CMD ["/app/startup.sh"]
