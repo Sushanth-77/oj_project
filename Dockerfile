@@ -34,10 +34,10 @@ RUN chmod +x /app/build.sh || true
 RUN chmod -R 755 /app && \
     chmod -R 777 /app/logs /app/media
 
-# Run build commands from the correct directory
-RUN python manage.py makemigrations
-RUN python manage.py migrate
-RUN python manage.py collectstatic --noinput --clear
+# Don't run Django commands during build - let build.sh handle it
+# RUN python manage.py makemigrations
+# RUN python manage.py migrate  
+# RUN python manage.py collectstatic --noinput --clear
 
 EXPOSE 8000
 
