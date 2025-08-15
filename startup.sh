@@ -7,7 +7,7 @@ echo "🚀 Container starting up..."
 export PYTHONPATH="/app/oj_project:$PYTHONPATH"
 export DJANGO_SETTINGS_MODULE=oj_project.settings
 
-cd /app/oj_project
+cd /app/oj_project/oj_project
 
 # Wait for database to be ready
 echo "⏳ Waiting for database..."

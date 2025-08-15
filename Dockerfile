@@ -33,7 +33,7 @@ RUN chmod -R 755 /app
 ENV PYTHONPATH="/app/oj_project:$PYTHONPATH"
 ENV DJANGO_SETTINGS_MODULE=oj_project.settings
 
-WORKDIR /app/oj_project
+WORKDIR /app/oj_project/oj_project
 
 # Force create migrations and migrate during build (using SQLite first)
 RUN python manage.py makemigrations --settings=oj_project.build_settings
