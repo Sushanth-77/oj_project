@@ -1,5 +1,4 @@
-# Add this to your oj_project/urls.py file
-
+# oj_project/urls.py
 from django.contrib import admin
 from django.urls import path, include
 from django.http import HttpResponse
@@ -22,7 +21,8 @@ def test_view(request):
         <li><a href="/auth/login/">Login</a></li>
         <li><a href="/auth/register/">Register</a></li>
         <li><a href="/problems/">Problems</a></li>
-        <li><a href="/admin/">Admin</a></li>
+        <li><a href="/django-admin/">Django Admin</a></li>
+        <li><a href="/manage/">Custom Admin Dashboard</a></li>
         <li><a href="/emergency-migrate/">🚨 Emergency Migrate (Admin Only)</a></li>
     </ul>
     """)
@@ -65,7 +65,7 @@ def emergency_migrate(request):
     return HttpResponse(f"<pre>{output.getvalue()}</pre>")
 
 urlpatterns = [
-    path('admin/', admin.site.urls),
+    # IMPORTANT: Put specific paths BEFORE the catch-all admin path
     path('test/', test_view, name='test'),
     path('emergency-migrate/', emergency_migrate, name='emergency_migrate'),
     path('', home_view, name='home'),
@@ -76,6 +76,12 @@ urlpatterns = [
     # Core app URLs (problems, submissions, etc.)
     path('problems/', include('core.urls')),
     
+    # Custom Admin Dashboard - use different path to avoid conflict
+    path('manage/', include('core.urls')),  # This will make admin dashboard available at /manage/admin/dashboard/
+    
     # Compiler URLs
     path('compiler/', include('compiler.urls')),
+    
+    # Django built-in admin - keep this LAST
+    path('django-admin/', admin.site.urls),  # Changed from 'admin/' to 'django-admin/'
 ]
