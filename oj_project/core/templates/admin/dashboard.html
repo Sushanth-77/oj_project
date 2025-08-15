@@ -229,7 +229,7 @@
         </div>
 
         <div class="nav-links">
-            <a href="{% url 'core:problems_list' %}">🏠 Main Site</a>
+            <a href="{% url 'problems:problems_list' %}">🏠 Main Site</a>
             <a href="{% url 'core:admin_problems_list' %}">📚 All Problems</a>
             <a href="{% url 'core:admin_add_problem' %}">➕ Add Problem</a>
         </div>
@@ -282,7 +282,7 @@
                     </div>
                 </div>
                 <div class="card-actions">
-                    <a href="/admin/core/submission/" class="btn btn-secondary">View All Submissions</a>
+                    <a href="/django-admin/core/submission/" class="btn btn-secondary">View All Submissions</a>
                 </div>
             </div>
 
@@ -294,8 +294,8 @@
                 </div>
                 <div class="card-actions">
                     <a href="{% url 'core:admin_add_problem' %}" class="btn btn-primary">➕ Add Problem</a>
-                    <a href="/admin/" class="btn btn-secondary">🛠️ Django Admin</a>
-                    <a href="{% url 'core:problems_list' %}" class="btn btn-secondary">👀 Preview Site</a>
+                    <a href="/django-admin/" class="btn btn-secondary">🛠️ Django Admin</a>
+                    <a href="{% url 'problems:problems_list' %}" class="btn btn-secondary">👀 Preview Site</a>
                 </div>
             </div>
         </div>
