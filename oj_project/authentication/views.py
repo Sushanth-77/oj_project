@@ -5,35 +5,67 @@ from django.contrib import messages
 from django.contrib.auth import authenticate, login, logout
 # Add this to the END of your authentication/views.py file
 
+# Add this to authentication/views.py or create a new management/views.py
+
 from django.http import HttpResponse
+from django.contrib.auth.decorators import user_passes_test
 from django.core.management import call_command
 from django.db import connection
-import traceback
-import io
+from io import StringIO
 import sys
 
-# Add this to authentication/views.py
+def is_superuser(user):
+    return user.is_authenticated and user.is_superuser
 
-
+@user_passes_test(is_superuser)
 def run_migrations_now(request):
-    """Emergency migration runner"""
-    if request.GET.get('secret') == 'migrate123':
-        try:
-            # Capture output
-            old_stdout = sys.stdout
-            sys.stdout = buffer = io.StringIO()
+    """Emergency migration runner - only for superusers"""
+    
+    output = StringIO()
+    
+    try:
+        # Show current migration status
+        output.write("=== MIGRATION STATUS ===\n")
+        call_command('showmigrations', stdout=output, verbosity=2)
+        
+        # Run migrations
+        output.write("\n=== RUNNING MIGRATIONS ===\n")
+        call_command('migrate', stdout=output, verbosity=2)
+        
+        # Verify auth_user table
+        output.write("\n=== VERIFICATION ===\n")
+        with connection.cursor() as cursor:
+            cursor.execute("""
+                SELECT table_name FROM information_schema.tables 
+                WHERE table_schema = 'public' AND table_type = 'BASE TABLE'
+                ORDER BY table_name
+            """)
+            tables = cursor.fetchall()
+            output.write(f"Database tables: {[t[0] for t in tables]}\n")
             
-            # Run migrations
-            call_command('makemigrations')
-            call_command('migrate')
+            # Check if auth_user exists
+            cursor.execute("""
+                SELECT COUNT(*) FROM information_schema.tables 
+                WHERE table_schema = 'public' 
+                AND table_name = 'auth_user'
+            """)
+            auth_user_exists = cursor.fetchone()[0] > 0
+            output.write(f"auth_user table exists: {auth_user_exists}\n")
             
-            output = buffer.getvalue()
-            sys.stdout = old_stdout
-            
-            return HttpResponse(f"<pre>✅ Migrations completed!\n\n{output}</pre>")
-        except Exception as e:
-            return HttpResponse(f"<pre>❌ Error: {str(e)}</pre>")
-    return HttpResponse("Access denied")
+            if auth_user_exists:
+                from django.contrib.auth.models import User
+                user_count = User.objects.count()
+                output.write(f"User count: {user_count}\n")
+        
+        output.write("\n✅ Migration completed successfully!")
+        
+    except Exception as e:
+        output.write(f"\n❌ Error during migration: {str(e)}")
+        
+    return HttpResponse(f"<pre>{output.getvalue()}</pre>", content_type="text/html")
+
+# Add this to your authentication/urls.py:
+# path('migrate-now/', run_migrations_now, name='migrate-now'),
 def register_user(request):
     """User registration view"""
     if request.method == 'POST':
