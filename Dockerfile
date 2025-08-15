@@ -22,7 +22,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY . /app/
 
 # Set working directory to where manage.py is located
-WORKDIR /app/oj_project
+WORKDIR /app/oj_project/oj_project
 
 # Create necessary directories
 RUN mkdir -p /app/staticfiles /app/media /app/logs

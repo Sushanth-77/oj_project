@@ -8,7 +8,7 @@ services:
     name: oj-project
     runtime: python3
     buildCommand: "./build.sh"
-    startCommand: "gunicorn oj_project.wsgi:application"
+    startCommand: "cd oj_project/oj_project && gunicorn oj_project.wsgi:application"
     envVars:
       - key: DATABASE_URL
         fromDatabase:
