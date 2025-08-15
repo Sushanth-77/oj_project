@@ -12,9 +12,9 @@ urlpatterns = [
     path('submissions/', views.submissions_list, name='submissions_list'),
     
     # Admin URLs
-    # path('admin/dashboard/', views.admin_dashboard, name='admin_dashboard'),
-    # path('admin/problems/', views.admin_problems_list, name='admin_problems_list'),
-    # path('admin/problems/add/', views.admin_add_problem, name='admin_add_problem'),
-    # path('admin/problems/<str:short_code>/edit/', views.admin_edit_problem, name='admin_edit_problem'),
-    # path('admin/problems/<str:short_code>/delete/', views.admin_delete_problem, name='admin_delete_problem'),
+     path('admin/dashboard/', views.admin_dashboard, name='admin_dashboard'),
+     path('admin/problems/', views.admin_problems_list, name='admin_problems_list'),
+     path('admin/problems/add/', views.admin_add_problem, name='admin_add_problem'),
+     path('admin/problems/<str:short_code>/edit/', views.admin_edit_problem, name='admin_edit_problem'),
+     path('admin/problems/<str:short_code>/delete/', views.admin_delete_problem, name='admin_delete_problem'),
 ]
