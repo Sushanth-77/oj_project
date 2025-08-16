@@ -1,15 +1,16 @@
 #!/usr/bin/env bash
+set -o errexit
 
-echo "🚀 Starting app..."
+echo "🚀 Starting deployment..."
 
-cd /app/oj_project/oj_project
+cd oj_project
 
-# Quick database check and migrate
-echo "🔄 Running migrations..."
-python manage.py migrate --run-syncdb || echo "Migration failed, continuing..."
+# Apply database migrations
+echo "🔄 Applying migrations..."
+python manage.py migrate --noinput
 
-# Create admin user quickly
-echo "👤 Creating admin..."
+# Create admin user
+echo "👤 Creating admin user..."
 python -c "
 import os
 import django
@@ -20,14 +21,16 @@ try:
     from django.contrib.auth.models import User
     if not User.objects.filter(username='admin').exists():
         User.objects.create_superuser('admin', 'admin@example.com', 'admin123')
-        print('✅ Admin created')
-except:
-    print('⚠️ Admin creation skipped')
-" || echo "Admin creation failed"
+        print('✅ Admin user created: username=admin, password=admin123')
+    else:
+        print('ℹ️ Admin user already exists')
+except Exception as e:
+    print(f'⚠️ Admin creation failed: {e}')
+"
 
-# Collect static files quickly
-echo "📦 Static files..."
-python manage.py collectstatic --noinput --clear || echo "Static files skipped"
+# Collect static files
+echo "📦 Collecting static files..."
+python manage.py collectstatic --noinput --clear
 
-echo "✅ Starting server..."
-exec gunicorn --bind 0.0.0.0:$PORT --workers 2 --timeout 120 oj_project.wsgi:application
+echo "✅ Starting server on port $PORT..."
+exec gunicorn --bind 0.0.0.0:$PORT --workers 2 --timeout 120 --access-logfile - --error-logfile - oj_project.wsgi:application

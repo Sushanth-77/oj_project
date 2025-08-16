@@ -1,9 +1,11 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Admin Dashboard - CodeMaster</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
         * {
             margin: 0;
@@ -60,7 +62,8 @@
             border-left: 4px solid transparent;
         }
 
-        .nav-item:hover, .nav-item.active {
+        .nav-item:hover,
+        .nav-item.active {
             background: rgba(0, 212, 170, 0.1);
             color: #00d4aa;
             border-left-color: #00d4aa;
@@ -417,23 +420,23 @@
                 transform: translateX(-100%);
                 transition: transform 0.3s ease;
             }
-            
+
             .sidebar.mobile-open {
                 transform: translateX(0);
             }
-            
+
             .main-content {
                 margin-left: 0;
             }
-            
+
             .header {
                 padding: 15px 20px;
             }
-            
+
             .dashboard-content {
                 padding: 20px;
             }
-            
+
             .stats-grid {
                 grid-template-columns: 1fr;
             }
@@ -596,8 +599,18 @@
             color: #a0aec0;
             font-size: 12px;
         }
+
+        .dropdown-item:hover {
+            background: rgba(0, 212, 170, 0.1) !important;
+            color: #00d4aa !important;
+        }
+
+        .user-menu .dropdown-toggle::after {
+            display: none;
+        }
     </style>
 </head>
+
 <body>
     <!-- Sidebar -->
     <nav class="sidebar" id="sidebar">
@@ -639,11 +652,23 @@
                     <span>➕</span> Add Problem
                 </a>
                 <div class="user-menu">
-                    <div class="user-avatar">
-                        A
-                        <div class="notification-dot"></div>
-                    </div>
-                </div>
+    <div class="dropdown">
+        <div class="user-avatar dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false" style="cursor: pointer;">
+            A
+            <div class="notification-dot"></div>
+        </div>
+        <ul class="dropdown-menu dropdown-menu-end" style="background: #1a1f29; border: 1px solid #2d3748; border-radius: 8px; min-width: 200px;">
+            <li><h6 class="dropdown-header" style="color: #a0aec0; font-size: 12px; text-transform: uppercase;">Admin Menu</h6></li>
+            <li><hr class="dropdown-divider" style="border-color: #2d3748; margin: 8px 0;"></li>
+            <li><a class="dropdown-item" href="{% url 'core:problems_list' %}?from_admin=1" style="color: #e2e8f0; padding: 12px 20px; transition: all 0.2s;">
+                <i style="margin-right: 10px;">🏠</i> Main Site
+            </a></li>
+            <li><a class="dropdown-item" href="{% url 'authentication:logout-user' %}" style="color: #f56565; padding: 12px 20px; transition: all 0.2s;">
+                <i style="margin-right: 10px;">🚪</i> Logout
+            </a></li>
+        </ul>
+    </div>
+</div>
             </div>
         </header>
 
@@ -709,29 +734,30 @@
                         <span>⚡</span> Recent Activity
                     </h2>
                 </div>
-                
+
                 {% if recent_submissions %}
-                    {% for submission in recent_submissions|slice:":5" %}
-                    <div class="activity-item">
-                        <div class="activity-icon {% if submission.verdict == 'AC' %}success{% else %}danger{% endif %}">
-                            {% if submission.verdict == 'AC' %}✅{% else %}❌{% endif %}
-                        </div>
-                        <div class="activity-content">
-                            <div class="activity-title">{{ submission.user.username }} submitted solution</div>
-                            <div class="activity-desc">Problem "{{ submission.problem.name }}" - {{ submission.get_verdict_display }}</div>
-                        </div>
-                        <div class="activity-time">{{ submission.submitted|timesince }} ago</div>
+                {% for submission in recent_submissions|slice:":5" %}
+                <div class="activity-item">
+                    <div class="activity-icon {% if submission.verdict == 'AC' %}success{% else %}danger{% endif %}">
+                        {% if submission.verdict == 'AC' %}✅{% else %}❌{% endif %}
                     </div>
-                    {% endfor %}
+                    <div class="activity-content">
+                        <div class="activity-title">{{ submission.user.username }} submitted solution</div>
+                        <div class="activity-desc">Problem "{{ submission.problem.name }}" - {{
+                            submission.get_verdict_display }}</div>
+                    </div>
+                    <div class="activity-time">{{ submission.submitted|timesince }} ago</div>
+                </div>
+                {% endfor %}
                 {% else %}
-                    <div class="activity-item">
-                        <div class="activity-icon info">📝</div>
-                        <div class="activity-content">
-                            <div class="activity-title">No recent submissions</div>
-                            <div class="activity-desc">No submission activity yet</div>
-                        </div>
-                        <div class="activity-time">-</div>
+                <div class="activity-item">
+                    <div class="activity-icon info">📝</div>
+                    <div class="activity-content">
+                        <div class="activity-title">No recent submissions</div>
+                        <div class="activity-desc">No submission activity yet</div>
                     </div>
+                    <div class="activity-time">-</div>
+                </div>
                 {% endif %}
             </div>
 
@@ -765,7 +791,8 @@
                                 </div>
                             </td>
                             <td>
-                                <span class="difficulty-badge difficulty-{% if problem.difficulty == 'E' %}easy{% elif problem.difficulty == 'M' %}medium{% else %}hard{% endif %}">
+                                <span
+                                    class="difficulty-badge difficulty-{% if problem.difficulty == 'E' %}easy{% elif problem.difficulty == 'M' %}medium{% else %}hard{% endif %}">
                                     {% if problem.difficulty == 'E' %}Easy
                                     {% elif problem.difficulty == 'M' %}Medium
                                     {% else %}Hard{% endif %}
@@ -775,9 +802,12 @@
                             <td>{{ problem.submission_set.count }} submissions</td>
                             <td>
                                 <div class="actions">
-                                    <a href="{% url 'core:problem_detail' problem.short_code %}" class="btn btn-info btn-sm">👁️ View</a>
-                                    <a href="{% url 'core:admin_edit_problem' problem.short_code %}" class="btn btn-warning btn-sm">✏️ Edit</a>
-                                    <a href="{% url 'core:admin_delete_problem' problem.short_code %}" class="btn btn-danger btn-sm">🗑️ Delete</a>
+                                    <a href="{% url 'core:problem_detail' problem.short_code %}"
+                                        class="btn btn-info btn-sm">👁️ View</a>
+                                    <a href="{% url 'core:admin_edit_problem' problem.short_code %}"
+                                        class="btn btn-warning btn-sm">✏️ Edit</a>
+                                    <a href="{% url 'core:admin_delete_problem' problem.short_code %}"
+                                        class="btn btn-danger btn-sm">🗑️ Delete</a>
                                 </div>
                             </td>
                         </tr>
@@ -803,26 +833,26 @@
                         <span>🔧</span> System Status
                     </h2>
                 </div>
-                
+
                 <div class="system-status">
                     <div class="status-item">
                         <div class="status-indicator status-online"></div>
                         <div class="status-label">Web Server</div>
                         <div class="status-desc">Running smoothly</div>
                     </div>
-                    
+
                     <div class="status-item">
                         <div class="status-indicator status-online"></div>
                         <div class="status-label">Database</div>
                         <div class="status-desc">Connected</div>
                     </div>
-                    
+
                     <div class="status-item">
                         <div class="status-indicator status-warning"></div>
                         <div class="status-label">Judge System</div>
                         <div class="status-desc">High load</div>
                     </div>
-                    
+
                     <div class="status-item">
                         <div class="status-indicator status-online"></div>
                         <div class="status-label">File Storage</div>
@@ -841,12 +871,12 @@
         }
 
         // Close sidebar when clicking outside on mobile
-        document.addEventListener('click', function(e) {
+        document.addEventListener('click', function (e) {
             const sidebar = document.getElementById('sidebar');
             const menuBtn = document.querySelector('.mobile-menu-btn');
-            
-            if (window.innerWidth <= 768 && 
-                !sidebar.contains(e.target) && 
+
+            if (window.innerWidth <= 768 &&
+                !sidebar.contains(e.target) &&
                 !menuBtn.contains(e.target) &&
                 sidebar.classList.contains('mobile-open')) {
                 sidebar.classList.remove('mobile-open');
@@ -854,13 +884,13 @@
         });
 
         // Add interactivity
-        document.addEventListener('DOMContentLoaded', function() {
+        document.addEventListener('DOMContentLoaded', function () {
             // Animate stat cards on load
             const statCards = document.querySelectorAll('.stat-card');
             statCards.forEach((card, index) => {
                 card.style.opacity = '0';
                 card.style.transform = 'translateY(20px)';
-                
+
                 setTimeout(() => {
                     card.style.transition = 'all 0.6s ease';
                     card.style.opacity = '1';
@@ -871,11 +901,11 @@
             // Add hover effects to action cards
             const actionCards = document.querySelectorAll('.action-card');
             actionCards.forEach(card => {
-                card.addEventListener('mouseenter', function() {
+                card.addEventListener('mouseenter', function () {
                     this.style.transform = 'translateY(-5px) scale(1.02)';
                 });
-                
-                card.addEventListener('mouseleave', function() {
+
+                card.addEventListener('mouseleave', function () {
                     this.style.transform = 'translateY(0) scale(1)';
                 });
             });
@@ -885,7 +915,7 @@
             activityItems.forEach((item, index) => {
                 item.style.opacity = '0';
                 item.style.transform = 'translateX(-20px)';
-                
+
                 setTimeout(() => {
                     item.style.transition = 'all 0.5s ease';
                     item.style.opacity = '1';
@@ -901,10 +931,10 @@
                         const current = parseInt(num.textContent.replace(/[^0-9]/g, '')) || 0;
                         const isPercentage = num.textContent.includes('%');
                         const newValue = isPercentage ? Math.min(current + 1, 100) : current + 1;
-                        
+
                         num.style.transform = 'scale(1.1)';
                         num.style.color = '#00f5d4';
-                        
+
                         setTimeout(() => {
                             num.textContent = isPercentage ? `${newValue}%` : newValue;
                             num.style.transform = 'scale(1)';
@@ -927,25 +957,25 @@
         });
 
         // Keyboard shortcuts
-        document.addEventListener('keydown', function(e) {
+        document.addEventListener('keydown', function (e) {
             // Alt + D for Dashboard
             if (e.altKey && e.key === 'd') {
                 e.preventDefault();
                 window.location.href = "{% url 'core:admin_dashboard' %}";
             }
-            
+
             // Alt + P for Problems
             if (e.altKey && e.key === 'p') {
                 e.preventDefault();
                 window.location.href = "{% url 'core:admin_problems_list' %}";
             }
-            
+
             // Alt + S for Submissions
             if (e.altKey && e.key === 's') {
                 e.preventDefault();
                 window.location.href = "{% url 'core:admin_submissions_list' %}";
             }
-            
+
             // Alt + N for New Problem
             if (e.altKey && e.key === 'n') {
                 e.preventDefault();
@@ -966,7 +996,7 @@ These shortcuts work from any admin page.`);
         }
 
         // Add help button listener
-        document.addEventListener('keydown', function(e) {
+        document.addEventListener('keydown', function (e) {
             if (e.key === 'F1') {
                 e.preventDefault();
                 showKeyboardShortcuts();
@@ -974,4 +1004,5 @@ These shortcuts work from any admin page.`);
         });
     </script>
 </body>
+
 </html>
