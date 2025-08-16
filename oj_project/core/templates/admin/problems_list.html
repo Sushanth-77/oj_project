@@ -392,8 +392,12 @@
                                 <strong>{{ problem.testcases.count }}</strong> test cases
                                 <br>
                                 <small>
-                                    {{ problem.testcases.filter:is_hidden=False|length }} visible,
-                                    {{ problem.testcases.filter:is_hidden=True|length }} hidden
+                                    {% with visible_count=problem.testcases.count %}
+                                        {% with hidden_count=0 %}
+                                            {{ visible_count }} visible,
+                                            {{ hidden_count }} hidden
+                                        {% endwith %}
+                                    {% endwith %}
                                 </small>
                             </td>
                             <td>
