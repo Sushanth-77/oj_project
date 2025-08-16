@@ -71,6 +71,20 @@
         border-radius: 8px;
         font-weight: 500;
       }
+      .alert-danger {
+        background: linear-gradient(90deg, #f8d7da 0%, #f5c6cb 100%);
+        color: #721c24;
+        border: none;
+        border-radius: 8px;
+        font-weight: 500;
+      }
+      .alert-success {
+        background: linear-gradient(90deg, #d4edda 0%, #c3e6cb 100%);
+        color: #155724;
+        border: none;
+        border-radius: 8px;
+        font-weight: 500;
+      }
       a {
         color: #4e9af1;
         text-decoration: none;
@@ -81,52 +95,141 @@
         color: #38e4ae;
         text-decoration: underline;
       }
+      .home-link {
+        position: absolute;
+        top: 20px;
+        left: 20px;
+        background: rgba(255, 255, 255, 0.2);
+        padding: 10px 15px;
+        border-radius: 25px;
+        color: #4e9af1;
+        text-decoration: none;
+        font-weight: 600;
+        transition: all 0.3s ease;
+      }
+      .home-link:hover {
+        background: rgba(255, 255, 255, 0.3);
+        color: #38e4ae;
+        text-decoration: none;
+        transform: translateY(-2px);
+      }
+      .password-requirements {
+        font-size: 0.85rem;
+        color: #666;
+        margin-top: 0.5rem;
+      }
     </style>
   </head>
   <body>
+    <!-- Home link -->
+    <a href="/" class="home-link">← Back to Home</a>
+    
     <div class="container mt-5">
       <form
         class="col-6 mx-auto card p-3 shadow-lg"
         method="post"
-        enctype="multipart/form-data"
+        action="{% url 'authentication:register-user' %}"
       >
+        <!-- CSRF Token - CRITICAL -->
         {% csrf_token %}
+        
         <h1 style="text-align: center">
-          <span style="color: green">SignUp</span>
+          <span style="color: green">Sign Up</span>
         </h1>
-        <h3>Register</h3>
+        <h3>Create Your Account</h3>
         <hr />
+        
+        <!-- Display messages -->
         {% if messages %}
-        <div class="alert alert-primary" role="alert">
-          {% for message in messages %} {{ message }} {% endfor %}
-        </div>
+          {% for message in messages %}
+            <div class="alert alert-{% if message.tags == 'error' %}danger{% else %}{{ message.tags }}{% endif %}" role="alert">
+              {{ message }}
+            </div>
+          {% endfor %}
         {% endif %}
+        
         <div class="form-group">
-          <label for="exampleInputEmail1">Username</label>
+          <label for="username">Username</label>
           <input
             type="text"
             class="form-control"
             name="username"
-            id="exampleInputEmail1"
-            aria-describedby="emailHelp"
-            placeholder="Enter username"
+            id="username"
+            placeholder="Choose a unique username"
             required
+            autocomplete="username"
+            minlength="3"
           />
+          <div class="password-requirements">
+            • Username must be at least 3 characters long
+          </div>
         </div>
+        
         <div class="form-group">
-          <label for="exampleInputPassword1">Password</label>
+          <label for="password">Password</label>
           <input
             type="password"
             class="form-control"
             name="password"
-            id="exampleInputPassword1"
-            placeholder="Password"
+            id="password"
+            placeholder="Create a strong password"
             required
+            autocomplete="new-password"
+            minlength="6"
           />
+          <div class="password-requirements">
+            • Password must be at least 6 characters long<br>
+            • Use a combination of letters, numbers, and special characters
+          </div>
         </div>
-        <p>Already have an account? <a href="{% url 'authentication:login-user' %}">Login</a></p>
-        <button type="submit" class="btn btn-primary">Submit</button>
+        
+        <p>Already have an account? <a href="{% url 'authentication:login-user' %}">Sign in here</a></p>
+        
+        <button type="submit" class="btn btn-primary btn-block">
+          Create Account
+        </button>
       </form>
     </div>
+
+    <!-- Add some JavaScript for better UX -->
+    <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+    <script>
+      // Auto-hide alerts after 5 seconds
+      setTimeout(function() {
+        $('.alert').fadeOut('slow');
+      }, 5000);
+
+      // Add loading state to submit button
+      document.querySelector('form').addEventListener('submit', function(e) {
+        const submitBtn = e.target.querySelector('button[type="submit"]');
+        submitBtn.innerHTML = 'Creating Account...';
+        submitBtn.disabled = true;
+      });
+
+      // Password strength indicator
+      document.getElementById('password').addEventListener('input', function() {
+        const password = this.value;
+        const requirements = document.querySelector('.password-requirements');
+        
+        if (password.length >= 6) {
+          requirements.style.color = '#28a745';
+        } else {
+          requirements.style.color = '#666';
+        }
+      });
+
+      // Username validation
+      document.getElementById('username').addEventListener('input', function() {
+        const username = this.value;
+        const requirements = this.parentNode.querySelector('.password-requirements');
+        
+        if (username.length >= 3) {
+          requirements.style.color = '#28a745';
+        } else {
+          requirements.style.color = '#666';
+        }
+      });
+    </script>
   </body>
 </html>
