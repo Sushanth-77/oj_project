@@ -224,6 +224,8 @@ def get_user_progress(user):
             'total_solved': 0,
             'remaining_problems': total_problems_count,
         }
+# In your core/views.py, find the problems_list function and change this line:
+
 def problems_list(request):
     """Display list of all problems with search and filtering"""
     search_query = request.GET.get('search', '').strip()
@@ -258,15 +260,20 @@ def problems_list(request):
     total_count = all_problems.count()
     
     context = {
-        'problems': problems,
-        'search_query': search_query,
-        'difficulty_filter': difficulty_filter,
-        'user_progress': user_progress,
-        'easy_count': easy_count,
-        'medium_count': medium_count,
-        'hard_count': hard_count,
-        'total_count': total_count,
-    }
+    'problems': problems,
+    'search_query': search_query,
+    'difficulty_filter': difficulty_filter,
+    'user_progress': user_progress,
+    'easy_count': easy_count,
+    'medium_count': medium_count,
+    'hard_count': hard_count,
+    'total_problems_count': total_count,  # Changed from 'total_count' to 'total_problems_count'
+}
+    
+    # CHANGE THIS LINE FROM:
+    # return render(request, 'problems_list.html', context)
+    # TO:
+    return render(request, 'problem_list.html', context)
     
     return render(request, 'problems_list.html', context)
 def problem_detail(request, short_code):
