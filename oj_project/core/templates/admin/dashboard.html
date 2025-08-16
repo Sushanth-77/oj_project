@@ -229,9 +229,10 @@
         </div>
 
         <div class="nav-links">
-            <a href="{% url 'problems:problems_list' %}">🏠 Main Site</a>
+            <a href="{% url 'core:problems_list' %}">🏠 Main Site</a>
             <a href="{% url 'core:admin_problems_list' %}">📚 All Problems</a>
             <a href="{% url 'core:admin_add_problem' %}">➕ Add Problem</a>
+            <a href="{% url 'authentication:logout-user' %}">🚪 Logout</a>
         </div>
 
         <div class="dashboard-grid">
@@ -277,12 +278,12 @@
                         <div class="stat-label">Total Submissions</div>
                     </div>
                     <div class="stat-item">
-                        <span class="stat-number">{% widthratio total_submissions 1 100 %}</span>
+                        <span class="stat-number">{% if total_problems > 0 %}{% widthratio total_submissions total_problems 1 %}{% else %}0{% endif %}</span>
                         <div class="stat-label">Avg per Problem</div>
                     </div>
                 </div>
                 <div class="card-actions">
-                    <a href="/django-admin/core/submission/" class="btn btn-secondary">View All Submissions</a>
+                    <a href="/admin/core/submission/" class="btn btn-secondary">View All Submissions</a>
                 </div>
             </div>
 
@@ -294,8 +295,8 @@
                 </div>
                 <div class="card-actions">
                     <a href="{% url 'core:admin_add_problem' %}" class="btn btn-primary">➕ Add Problem</a>
-                    <a href="/django-admin/" class="btn btn-secondary">🛠️ Django Admin</a>
-                    <a href="{% url 'problems:problems_list' %}" class="btn btn-secondary">👀 Preview Site</a>
+                    <a href="/admin/" class="btn btn-secondary">🛠️ Django Admin</a>
+                    <a href="{% url 'core:problems_list' %}" class="btn btn-secondary">👀 Preview Site</a>
                 </div>
             </div>
         </div>
