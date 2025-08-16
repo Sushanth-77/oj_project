@@ -374,12 +374,12 @@ def evaluate_submission(submission, language):
         return 'RE'
 
 class TestCaseFormatDetector:
-    """Advanced test case format detector and parser"""
+    """Advanced test case format detector and parser with improved logic"""
     
     @staticmethod
     def detect_format(input_content, output_content):
         """
-        Detect the format of test cases with improved logic
+        Detect the format of test cases with improved logic for FIFO-style problems
         Returns format information and parsing strategy
         """
         input_lines = [line.strip() for line in input_content.strip().split('\n') if line.strip()]
@@ -389,7 +389,23 @@ class TestCaseFormatDetector:
         logger.debug(f"First 3 input lines: {input_lines[:3]}")
         logger.debug(f"First 3 output lines: {output_lines[:3]}")
         
-        # Strategy 1: Equal number of lines - likely one test case per line
+        # Strategy 1: Check for empty line separated input sections with single line outputs
+        input_sections = input_content.strip().split('\n\n')
+        input_sections = [section.strip() for section in input_sections if section.strip()]
+        
+        if len(input_sections) > 1 and len(input_sections) == len(output_lines):
+            # This handles the FIFO case: input sections separated by empty lines, single line outputs
+            pairs = []
+            for inp_section, out_line in zip(input_sections, output_lines):
+                pairs.append((inp_section.strip(), out_line.strip()))
+            
+            return {
+                'type': 'sections_to_lines',
+                'description': f'Input sections separated by empty lines, single line outputs ({len(pairs)} cases)',
+                'pairs': pairs
+            }
+        
+        # Strategy 2: Equal number of lines - likely one test case per line
         if len(input_lines) == len(output_lines) and len(input_lines) > 1:
             # Check if inputs look like single values or simple expressions
             simple_inputs = 0
@@ -407,7 +423,7 @@ class TestCaseFormatDetector:
                     'pairs': list(zip(input_lines, output_lines))
                 }
         
-        # Strategy 2: Check if first line is a count
+        # Strategy 3: Check if first line is a count
         if len(input_lines) > 1 and input_lines[0].strip().isdigit():
             test_count = int(input_lines[0])
             remaining_input_lines = input_lines[1:]
@@ -442,9 +458,9 @@ class TestCaseFormatDetector:
                         'pairs': pairs
                     }
         
-        # Strategy 3: Multi-line test cases separated by empty lines
-        input_sections = input_content.strip().split('\n\n')
+        # Strategy 4: Multi-line test cases separated by empty lines (both input and output)
         output_sections = output_content.strip().split('\n\n')
+        output_sections = [section.strip() for section in output_sections if section.strip()]
         
         if len(input_sections) > 1 and len(input_sections) == len(output_sections):
             pairs = []
@@ -457,8 +473,7 @@ class TestCaseFormatDetector:
                 'pairs': pairs
             }
         
-        # Strategy 4: Single large test case
-        # Check if output has multiple lines but input doesn't match line count
+        # Strategy 5: Single large test case with multiple outputs
         if len(output_lines) > 1 and len(input_lines) != len(output_lines):
             # Could be one input producing multiple outputs
             return {
