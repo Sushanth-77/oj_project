@@ -590,5 +590,29 @@ def two_sum(nums, target):<br>
             });
         });
     </script>
+    <script>
+// Keep Render app alive
+(function keepAppAlive() {
+    const APP_URL = 'https://codemaster-jlup.onrender.com'; // Replace with your actual URL
+    const PING_INTERVAL = 13 * 60 * 1000; // 13 minutes
+    
+    function pingApp() {
+        fetch(APP_URL, {
+            method: 'GET',
+            mode: 'no-cors'
+        }).then(() => {
+            console.log('✅ App pinged at', new Date().toLocaleTimeString());
+        }).catch(err => {
+            console.log('❌ Ping failed:', err.message);
+        });
+    }
+    
+    // Ping immediately, then every 13 minutes
+    pingApp();
+    setInterval(pingApp, PING_INTERVAL);
+    
+    console.log('🚀 Keep-alive started');
+})();
+</script>
 </body>
 </html>

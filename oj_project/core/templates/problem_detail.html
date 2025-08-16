@@ -306,11 +306,21 @@
             border-radius: 6px;
             font-weight: 500;
             cursor: pointer;
-            transition: background 0.2s;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
         }
 
-        .btn-submit:hover {
+        .btn-submit:hover:not(:disabled) {
             background: #1d4ed8;
+            transform: translateY(-1px);
+        }
+
+        .btn-submit:disabled {
+            background: var(--secondary-color);
+            cursor: not-allowed;
+            opacity: 0.6;
         }
 
         .btn-test {
@@ -321,11 +331,21 @@
             border-radius: 6px;
             font-weight: 500;
             cursor: pointer;
-            transition: background 0.2s;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
         }
 
-        .btn-test:hover {
+        .btn-test:hover:not(:disabled) {
             background: #475569;
+            transform: translateY(-1px);
+        }
+
+        .btn-test:disabled {
+            background: var(--secondary-color);
+            cursor: not-allowed;
+            opacity: 0.6;
         }
 
         .ai-review-btn-small {
@@ -476,6 +496,7 @@
             border-radius: 8px;
             margin-bottom: 1rem;
             border: 1px solid;
+            padding: 1rem;
         }
 
         .alert-success {
@@ -488,6 +509,34 @@
             background: rgba(239, 68, 68, 0.1);
             border-color: rgba(239, 68, 68, 0.2);
             color: var(--danger-color);
+        }
+
+        .alert-warning {
+            background: rgba(245, 158, 11, 0.1);
+            border-color: rgba(245, 158, 11, 0.2);
+            color: var(--warning-color);
+        }
+
+        .alert-info {
+            background: rgba(37, 99, 235, 0.1);
+            border-color: rgba(37, 99, 235, 0.2);
+            color: var(--primary-color);
+        }
+
+        /* Loading spinner */
+        .loading-spinner {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid transparent;
+            border-top: 2px solid currentColor;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
         }
 
         /* Responsive Design */
@@ -594,11 +643,11 @@
                     <div class="problem-meta">
                         <div class="problem-code">{{ problem.short_code }}</div>
                         {% if problem.difficulty == 'E' %}
-                            <span class="difficulty-badge easy">Easy</span>
+                            <span class="difficulty-badge easy">🟢 Easy</span>
                         {% elif problem.difficulty == 'M' %}
-                            <span class="difficulty-badge medium">Medium</span>
+                            <span class="difficulty-badge medium">🟡 Medium</span>
                         {% else %}
-                            <span class="difficulty-badge hard">Hard</span>
+                            <span class="difficulty-badge hard">🔴 Hard</span>
                         {% endif %}
                     </div>
 
@@ -646,7 +695,7 @@
                 <div class="panel-content">
                     {% if user.is_authenticated %}
                     <!-- Submission Form -->
-                    <form method="post" action="{% url 'core:problem_detail' problem.short_code %}">
+                    <form method="post" action="{% url 'core:problem_detail' problem.short_code %}" id="submission-form">
                         {% csrf_token %}
                         
                         <!-- Language Selector -->
@@ -672,11 +721,15 @@ solve()
 
                         <!-- Submit Buttons -->
                         <div class="submit-section">
-                            <button type="submit" name="action" value="submit" class="btn-submit">
-                                <i class="fas fa-paper-plane"></i> Submit Solution
+                            <button type="submit" name="action" value="submit" class="btn-submit" id="submit-btn">
+                                <i class="fas fa-paper-plane"></i> 
+                                <span class="btn-text">Submit Solution</span>
+                                <div class="loading-spinner" style="display: none;"></div>
                             </button>
-                            <button type="submit" name="action" value="test" class="btn-test">
-                                <i class="fas fa-play"></i> Test Code
+                            <button type="submit" name="action" value="test" class="btn-test" id="test-btn">
+                                <i class="fas fa-play"></i> 
+                                <span class="btn-text">Test Code</span>
+                                <div class="loading-spinner" style="display: none;"></div>
                             </button>
                         </div>
                     </form>
@@ -703,19 +756,9 @@ solve()
                                         <td>{{ submission.submitted|date:"M d, H:i" }}</td>
                                         <td>{{ submission.get_language_display }}</td>
                                         <td>
-                                            {% if submission.verdict == 'AC' %}
-                                                <span class="status-accepted">âœ" Accepted</span>
-                                            {% elif submission.verdict == 'WA' %}
-                                                <span class="status-rejected">âœ— Wrong Answer</span>
-                                            {% elif submission.verdict == 'TLE' %}
-                                                <span class="status-rejected">â° Time Limit</span>
-                                            {% elif submission.verdict == 'RE' %}
-                                                <span class="status-rejected">ðŸ'¥ Runtime Error</span>
-                                            {% elif submission.verdict == 'CE' %}
-                                                <span class="status-rejected">âš ï¸ Compilation Error</span>
-                                            {% else %}
-                                                <span class="status-pending">â³ {{ submission.get_verdict_display }}</span>
-                                            {% endif %}
+                                            <span class="{{ submission.get_status_color_class }}">
+                                                {{ submission.get_verdict_display_with_icon }}
+                                            </span>
                                         </td>
                                         <td>
                                             <button class="ai-review-btn-small" data-submission-id="{{ submission.id }}">
@@ -769,6 +812,7 @@ solve()
     
     <script>
         let codeEditor;
+        let isSubmitting = false;
         
         document.addEventListener('DOMContentLoaded', function() {
             // Initialize CodeMirror
@@ -818,9 +862,14 @@ solve()
             }
 
             // Form submission handler
-            const form = document.querySelector('form');
+            const form = document.getElementById('submission-form');
             if (form) {
                 form.addEventListener('submit', function(e) {
+                    if (isSubmitting) {
+                        e.preventDefault();
+                        return false;
+                    }
+
                     if (codeEditor) {
                         codeEditor.save(); // Save CodeMirror content to textarea
                     }
@@ -830,6 +879,19 @@ solve()
                         e.preventDefault();
                         alert('Please enter your solution code.');
                         return false;
+                    }
+
+                    if (code.length < 10) {
+                        e.preventDefault();
+                        alert('Please provide a meaningful solution (at least 10 characters).');
+                        return false;
+                    }
+
+                    // Show loading state
+                    const clickedButton = document.activeElement;
+                    if (clickedButton) {
+                        setButtonLoading(clickedButton, true);
+                        isSubmitting = true;
                     }
                 });
             }
@@ -845,6 +907,36 @@ solve()
                 }
             });
         });
+
+        function setButtonLoading(button, loading) {
+            const spinner = button.querySelector('.loading-spinner');
+            const text = button.querySelector('.btn-text');
+            const icon = button.querySelector('i:not(.loading-spinner i)');
+            
+            if (loading) {
+                button.disabled = true;
+                if (spinner) spinner.style.display = 'inline-block';
+                if (icon) icon.style.display = 'none';
+                if (text) {
+                    if (button.classList.contains('btn-test')) {
+                        text.textContent = 'Testing...';
+                    } else {
+                        text.textContent = 'Submitting...';
+                    }
+                }
+            } else {
+                button.disabled = false;
+                if (spinner) spinner.style.display = 'none';
+                if (icon) icon.style.display = 'inline';
+                if (text) {
+                    if (button.classList.contains('btn-test')) {
+                        text.textContent = 'Test Code';
+                    } else {
+                        text.textContent = 'Submit Solution';
+                    }
+                }
+            }
+        }
         
         function getSubmissionAIReview(submissionId) {
             // Show loading in modal
@@ -932,6 +1024,16 @@ solve()
             if (e.key === 'Escape') {
                 closeAIReviewModal();
             }
+        });
+
+        // Reset loading state when page loads (in case of redirect after form submission)
+        window.addEventListener('load', function() {
+            isSubmitting = false;
+            const submitBtn = document.getElementById('submit-btn');
+            const testBtn = document.getElementById('test-btn');
+            
+            if (submitBtn) setButtonLoading(submitBtn, false);
+            if (testBtn) setButtonLoading(testBtn, false);
         });
     </script>
 </body>

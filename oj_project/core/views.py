@@ -1,4 +1,4 @@
-# core/views.py
+# core/views.py - Updated with proper compiler integration
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib import messages
@@ -10,6 +10,9 @@ import json
 from django.core.files.storage import default_storage
 from django.core.files.base import ContentFile
 
+# Import the evaluation function from compiler app
+from compiler.views import evaluate_submission
+
 from .admin_utils import check_admin_access
 
 # Replace your existing problems_list function with this updated version:
@@ -17,6 +20,10 @@ from .admin_utils import check_admin_access
 from django.contrib.auth.models import User
 from django.db.models import Count, Q
 from datetime import datetime, timedelta
+import logging
+
+# Set up logging
+logger = logging.getLogger(__name__)
 
 # Helper function for admin check
 def is_admin(user):
@@ -132,6 +139,7 @@ def admin_analytics(request):
     }
     
     return render(request, 'admin/analytics.html', context)
+
 def problems_list(request):
     """Display list of all problems with user progress and search functionality"""
     # Check if admin user should be redirected to admin dashboard
@@ -315,6 +323,7 @@ def problem_detail(request, short_code):
         language = request.POST.get('language', 'python')
         action = request.POST.get('action', 'submit')
         
+        # Validate code input
         if not code_text:
             if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
                 return JsonResponse({
@@ -322,6 +331,11 @@ def problem_detail(request, short_code):
                     'error': 'Code cannot be empty'
                 })
             messages.error(request, 'Code cannot be empty')
+            return render(request, 'problem_detail.html', context)
+        
+        # Basic validation - check for meaningful code
+        if len(code_text.strip()) < 10:
+            messages.error(request, 'Please provide a meaningful solution')
             return render(request, 'problem_detail.html', context)
         
         # Map language values from form to database choices
@@ -333,48 +347,76 @@ def problem_detail(request, short_code):
         }
         db_language = language_mapping.get(language, 'py')
         
-        # For AI review only, create submission but don't show regular messages
-        if action == 'ai_review_only':
-            # Simple mock evaluation for AI review
-            verdict = 'AC' if len(code_text.strip()) > 20 else 'WA'
-            
-            submission = Submission.objects.create(
-                problem=problem,
-                user=request.user,
-                code_text=code_text,
-                language=db_language,
-                verdict=verdict
-            )
-            
-            return JsonResponse({
-                'success': True,
-                'submission_id': submission.id,
-                'message': 'Submission created for AI review'
-            })
-        
-        # For regular submission or testing
-        # Simple mock evaluation - just check if code is not empty and has some content
-        verdict = 'AC' if len(code_text.strip()) > 20 else 'WA'  # Very basic check
-        
-        # Create submission record
+        # Create submission record first (with pending status)
         submission = Submission.objects.create(
             problem=problem,
             user=request.user,
             code_text=code_text,
             language=db_language,
-            verdict=verdict
+            verdict='PE'  # Pending evaluation
         )
         
-        if action == 'test':
-            if verdict == 'AC':
-                messages.success(request, 'Test passed! Your code looks good.')
+        logger.info(f"Created submission {submission.id} for user {request.user.username} on problem {problem.short_code}")
+        
+        try:
+            # For AI review only, just set a basic verdict and return
+            if action == 'ai_review_only':
+                submission.verdict = 'AC'  # Assume AC for AI review
+                submission.save()
+                
+                return JsonResponse({
+                    'success': True,
+                    'submission_id': submission.id,
+                    'message': 'Submission created for AI review'
+                })
+            
+            # Use the actual compiler evaluation function
+            logger.info(f"Starting evaluation for submission {submission.id}")
+            verdict = evaluate_submission(submission, db_language)
+            
+            # Update submission with the verdict
+            submission.verdict = verdict
+            submission.save()
+            
+            logger.info(f"Evaluation completed for submission {submission.id} with verdict: {verdict}")
+            
+            # Provide feedback based on action and verdict
+            if action == 'test':
+                if verdict == 'AC':
+                    messages.success(request, '✅ Test passed! Your code works correctly on the sample test cases.')
+                elif verdict == 'WA':
+                    messages.error(request, '❌ Wrong Answer. Your output doesn\'t match the expected results.')
+                elif verdict == 'RE':
+                    messages.error(request, '💥 Runtime Error. There\'s an error in your code execution.')
+                elif verdict == 'TLE':
+                    messages.error(request, '⏰ Time Limit Exceeded. Your code is taking too long to execute.')
+                elif verdict == 'CE':
+                    messages.error(request, '⚠️ Compilation Error. There\'s a syntax error in your code.')
+                else:
+                    messages.warning(request, f'Test completed with status: {submission.get_verdict_display()}')
+            else:  # submit
+                if verdict == 'AC':
+                    messages.success(request, '🎉 Congratulations! Your solution was accepted!')
+                elif verdict == 'WA':
+                    messages.error(request, '❌ Wrong Answer. Please check your logic and try again.')
+                elif verdict == 'RE':
+                    messages.error(request, '💥 Runtime Error. Please fix the errors in your code.')
+                elif verdict == 'TLE':
+                    messages.error(request, '⏰ Time Limit Exceeded. Try optimizing your solution.')
+                elif verdict == 'CE':
+                    messages.error(request, '⚠️ Compilation Error. Please fix the syntax errors.')
+                else:
+                    messages.warning(request, f'Submission completed with status: {submission.get_verdict_display()}')
+        
+        except Exception as e:
+            logger.error(f"Error during evaluation of submission {submission.id}: {str(e)}", exc_info=True)
+            submission.verdict = 'RE'  # Runtime error
+            submission.save()
+            
+            if action == 'test':
+                messages.error(request, '💥 Error occurred during testing. Please check your code.')
             else:
-                messages.warning(request, 'Test failed. Please review your code.')
-        else:  # submit
-            if verdict == 'AC':
-                messages.success(request, 'Congratulations! Your solution was accepted.')
-            else:
-                messages.error(request, 'Wrong Answer. Please try again.')
+                messages.error(request, '💥 Error occurred during submission evaluation. Please try again.')
         
         return redirect('core:problem_detail', short_code=short_code)
     
@@ -651,6 +693,7 @@ def admin_delete_problem(request, short_code):
     }
     
     return render(request, 'admin/delete_problem.html', context)
+
 @login_required
 @user_passes_test(is_admin)
 def admin_submissions_list(request):
