@@ -2,6 +2,14 @@
 
 echo "🚀 Starting app..."
 
+# Verify compilers are available
+echo "🔍 Checking compilers..."
+gcc --version 2>/dev/null && echo "✅ GCC available" || echo "❌ GCC missing"
+g++ --version 2>/dev/null && echo "✅ G++ available" || echo "❌ G++ missing"
+javac -version 2>/dev/null && echo "✅ Java compiler available" || echo "❌ Java compiler missing"
+node --version 2>/dev/null && echo "✅ Node.js available" || echo "❌ Node.js missing"
+python3 --version 2>/dev/null && echo "✅ Python available" || echo "❌ Python missing"
+
 cd /app/oj_project/oj_project
 
 # Quick database check and migrate

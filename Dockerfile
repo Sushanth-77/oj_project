@@ -7,12 +7,20 @@ ENV DJANGO_SETTINGS_MODULE=oj_project.settings
 
 WORKDIR /app
 
-# Install system dependencies quickly
+# Install system dependencies INCLUDING COMPILERS
 RUN apt-get update && apt-get install -y \
     gcc \
+    g++ \
+    default-jdk \
+    nodejs \
+    npm \
+    build-essential \
     libpq-dev \
     --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
+
+# Verify compilers are installed
+RUN gcc --version && g++ --version && javac -version && node --version
 
 # Install Python dependencies
 COPY requirements.txt .

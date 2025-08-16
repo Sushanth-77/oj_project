@@ -6,9 +6,9 @@ databases:
 services:
   - type: web
     name: oj-project
-    runtime: python3
-    buildCommand: "./build.sh"
-    startCommand: "./startup.sh"
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
     envVars:
       - key: DATABASE_URL
         fromDatabase:
@@ -18,3 +18,5 @@ services:
         generateValue: true
       - key: PORT
         value: 8000
+      - key: DEBUG
+        value: false
