@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Delete Problem - {{ problem.name }}</title>
+    <title>Delete Problem - CodeMaster</title>
     <style>
         * {
             margin: 0;
@@ -12,189 +12,330 @@
         }
 
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #0f1419;
+            color: #ffffff;
             min-height: 100vh;
-            padding: 20px;
             display: flex;
             align-items: center;
             justify-content: center;
+            padding: 20px;
         }
 
         .container {
             max-width: 600px;
-            background: white;
-            border-radius: 15px;
-            box-shadow: 0 20px 40px rgba(0,0,0,0.2);
+            width: 100%;
+            background: #1a1f29;
+            border: 1px solid #2d3748;
+            border-radius: 20px;
             overflow: hidden;
-            text-align: center;
+            box-shadow: 0 25px 50px rgba(0, 0, 0, 0.3);
+            position: relative;
         }
 
-        .header {
-            background: linear-gradient(135deg, #e74c3c, #c0392b);
-            color: white;
+        .danger-header {
+            background: linear-gradient(135deg, #dc3545, #c82333);
             padding: 40px 30px;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .danger-header::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: repeating-linear-gradient(
+                45deg,
+                transparent,
+                transparent 10px,
+                rgba(255, 255, 255, 0.1) 10px,
+                rgba(255, 255, 255, 0.1) 20px
+            );
         }
 
         .warning-icon {
-            font-size: 4em;
-            margin-bottom: 15px;
+            font-size: 80px;
+            margin-bottom: 20px;
+            display: block;
+            animation: pulse 2s infinite;
         }
 
-        .header h1 {
-            font-size: 2em;
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+        }
+
+        .danger-title {
+            font-size: 32px;
+            font-weight: 800;
             margin-bottom: 10px;
+            position: relative;
+            z-index: 1;
         }
 
-        .header p {
+        .danger-subtitle {
             opacity: 0.9;
-            font-size: 1.1em;
+            font-size: 16px;
+            position: relative;
+            z-index: 1;
         }
 
         .content {
-            padding: 40px 30px;
+            padding: 40px;
         }
 
-        .problem-info {
-            background: #f8f9fa;
-            border-radius: 10px;
-            padding: 25px;
-            margin: 25px 0;
-            border-left: 4px solid #e74c3c;
+        .problem-card {
+            background: #2d3748;
+            border: 1px solid #4a5568;
+            border-radius: 15px;
+            padding: 30px;
+            margin-bottom: 30px;
+            text-align: center;
+            position: relative;
         }
 
-        .problem-info h3 {
-            color: #2c3e50;
-            margin-bottom: 10px;
-            font-size: 1.3em;
+        .problem-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, #dc3545, #c82333);
+            border-radius: 15px 15px 0 0;
+        }
+
+        .problem-name {
+            font-size: 24px;
+            font-weight: 700;
+            color: #ffffff;
+            margin-bottom: 12px;
         }
 
         .problem-details {
-            color: #6c757d;
+            color: #a0aec0;
+            margin-bottom: 20px;
+            font-size: 16px;
+        }
+
+        .problem-code {
+            background: rgba(0, 212, 170, 0.1);
+            color: #00d4aa;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-family: 'Courier New', monospace;
+            font-weight: 600;
+            display: inline-block;
             margin-bottom: 15px;
         }
 
         .difficulty-badge {
-            padding: 6px 12px;
+            padding: 8px 16px;
             border-radius: 20px;
-            font-size: 14px;
-            font-weight: 600;
+            font-size: 12px;
+            font-weight: 700;
             text-transform: uppercase;
             letter-spacing: 0.5px;
             display: inline-block;
         }
 
         .difficulty-easy {
-            background: #d4edda;
-            color: #155724;
+            background: rgba(76, 175, 80, 0.2);
+            color: #4caf50;
+            border: 1px solid #4caf50;
         }
 
         .difficulty-medium {
-            background: #fff3cd;
-            color: #856404;
+            background: rgba(255, 193, 7, 0.2);
+            color: #ffc107;
+            border: 1px solid #ffc107;
         }
 
         .difficulty-hard {
-            background: #f8d7da;
-            color: #721c24;
+            background: rgba(244, 67, 54, 0.2);
+            color: #f44336;
+            border: 1px solid #f44336;
         }
 
-        .warning-text {
-            color: #721c24;
-            background: #f8d7da;
-            padding: 20px;
-            border-radius: 8px;
-            border: 1px solid #f5c6cb;
-            margin: 20px 0;
-            font-weight: 500;
-        }
-
-        .stats {
+        .stats-grid {
             display: grid;
             grid-template-columns: 1fr 1fr;
             gap: 20px;
-            margin: 20px 0;
+            margin: 30px 0;
         }
 
         .stat-item {
-            background: #e9ecef;
-            padding: 15px;
-            border-radius: 8px;
+            background: #1a1f29;
+            border: 1px solid #4a5568;
+            border-radius: 12px;
+            padding: 20px;
+            text-align: center;
         }
 
         .stat-number {
-            font-size: 1.5em;
-            font-weight: bold;
-            color: #2c3e50;
+            font-size: 28px;
+            font-weight: 800;
+            color: #dc3545;
             display: block;
+            margin-bottom: 8px;
         }
 
         .stat-label {
-            color: #6c757d;
-            font-size: 0.9em;
+            color: #a0aec0;
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .danger-warning {
+            background: rgba(244, 67, 54, 0.1);
+            border: 2px solid rgba(244, 67, 54, 0.3);
+            border-radius: 12px;
+            padding: 25px;
+            margin: 30px 0;
+            text-align: center;
+        }
+
+        .danger-warning-title {
+            color: #f44336;
+            font-size: 18px;
+            font-weight: 700;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+
+        .consequences-list {
+            background: rgba(255, 193, 7, 0.1);
+            border: 1px solid rgba(255, 193, 7, 0.3);
+            border-radius: 12px;
+            padding: 25px;
+            margin: 30px 0;
+            text-align: left;
+        }
+
+        .consequences-title {
+            color: #ffc107;
+            font-size: 16px;
+            font-weight: 700;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .consequences-list ul {
+            color: #ffc107;
+            margin-left: 20px;
+            line-height: 1.8;
+        }
+
+        .consequences-list li {
+            margin-bottom: 8px;
         }
 
         .actions {
             display: flex;
             gap: 20px;
             justify-content: center;
-            margin-top: 30px;
+            margin-top: 40px;
         }
 
         .btn {
             padding: 15px 30px;
             border: none;
-            border-radius: 8px;
+            border-radius: 10px;
             font-size: 16px;
-            font-weight: 600;
+            font-weight: 700;
             cursor: pointer;
             transition: all 0.3s ease;
             text-decoration: none;
-            display: inline-block;
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            position: relative;
+            overflow: hidden;
         }
 
         .btn-danger {
-            background: #dc3545;
+            background: linear-gradient(135deg, #dc3545, #c82333);
             color: white;
+            border: 2px solid transparent;
         }
 
         .btn-danger:hover {
-            background: #c82333;
             transform: translateY(-2px);
-            box-shadow: 0 10px 20px rgba(220, 53, 69, 0.3);
+            box-shadow: 0 15px 30px rgba(220, 53, 69, 0.4);
+        }
+
+        .btn-danger:active {
+            transform: scale(0.98);
         }
 
         .btn-secondary {
-            background: #6c757d;
-            color: white;
+            background: #2d3748;
+            color: #a0aec0;
+            border: 2px solid #4a5568;
         }
 
         .btn-secondary:hover {
-            background: #545b62;
+            background: #4a5568;
+            color: white;
             transform: translateY(-2px);
         }
 
-        .consequences {
-            background: #fff3cd;
-            border: 1px solid #ffeeba;
-            border-radius: 8px;
-            padding: 20px;
+        .confirmation-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 2000;
+        }
+
+        .modal-content {
+            background: #1a1f29;
+            border: 1px solid #2d3748;
+            border-radius: 15px;
+            padding: 40px;
+            max-width: 500px;
+            width: 90%;
+            text-align: center;
+        }
+
+        .modal-title {
+            font-size: 24px;
+            font-weight: 700;
+            color: #dc3545;
+            margin-bottom: 20px;
+        }
+
+        .confirmation-input {
+            width: 100%;
+            padding: 15px 20px;
+            background: #2d3748;
+            border: 2px solid #4a5568;
+            border-radius: 10px;
+            color: #ffffff;
+            font-size: 16px;
+            text-align: center;
             margin: 20px 0;
-            text-align: left;
         }
 
-        .consequences h4 {
-            color: #856404;
-            margin-bottom: 10px;
-        }
-
-        .consequences ul {
-            color: #856404;
-            margin-left: 20px;
-        }
-
-        .consequences li {
-            margin-bottom: 5px;
+        .confirmation-input:focus {
+            outline: none;
+            border-color: #dc3545;
+            box-shadow: 0 0 0 3px rgba(220, 53, 69, 0.1);
         }
 
         @media (max-width: 600px) {
@@ -202,38 +343,46 @@
                 flex-direction: column;
             }
             
-            .stats {
+            .stats-grid {
                 grid-template-columns: 1fr;
             }
             
             .container {
                 margin: 10px;
             }
+
+            .danger-title {
+                font-size: 24px;
+            }
+
+            .warning-icon {
+                font-size: 60px;
+            }
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <div class="header">
+        <div class="danger-header">
             <div class="warning-icon">⚠️</div>
-            <h1>Delete Problem</h1>
-            <p>This action cannot be undone</p>
+            <h1 class="danger-title">DANGER ZONE</h1>
+            <p class="danger-subtitle">This action cannot be undone</p>
         </div>
 
         <div class="content">
-            <div class="problem-info">
-                <h3>{{ problem.name }}</h3>
+            <div class="problem-card">
+                <h2 class="problem-name">{{ problem.name }}</h2>
                 <div class="problem-details">
-                    <strong>Short Code:</strong> {{ problem.short_code }}
+                    <div class="problem-code">{{ problem.short_code }}</div>
                 </div>
                 <span class="difficulty-badge difficulty-{% if problem.difficulty == 'E' %}easy{% elif problem.difficulty == 'M' %}medium{% else %}hard{% endif %}">
-                    {% if problem.difficulty == 'E' %}Easy
-                    {% elif problem.difficulty == 'M' %}Medium
-                    {% else %}Hard{% endif %}
+                    {% if problem.difficulty == 'E' %}🟢 Easy
+                    {% elif problem.difficulty == 'M' %}🟡 Medium
+                    {% else %}🔴 Hard{% endif %}
                 </span>
             </div>
 
-            <div class="stats">
+            <div class="stats-grid">
                 <div class="stat-item">
                     <span class="stat-number">{{ problem.testcases.count }}</span>
                     <div class="stat-label">Test Cases</div>
@@ -244,63 +393,234 @@
                 </div>
             </div>
 
-            <div class="warning-text">
-                <strong>⚠️ Warning:</strong> You are about to permanently delete this problem. This action cannot be undone.
+            <div class="danger-warning">
+                <div class="danger-warning-title">
+                    <span>🚨</span> CRITICAL WARNING
+                </div>
+                <p>You are about to permanently delete this problem. This action cannot be undone and will result in permanent data loss.</p>
             </div>
 
-            <div class="consequences">
-                <h4>🗑️ What will be deleted:</h4>
+            <div class="consequences-list">
+                <div class="consequences-title">
+                    <span>📋</span> What will be deleted:
+                </div>
                 <ul>
-                    <li>The problem statement and all metadata</li>
-                    <li>All {{ problem.testcases.count }} test cases</li>
+                    <li>The complete problem statement and metadata</li>
+                    <li>All {{ problem.testcases.count }} test cases (visible and hidden)</li>
                     <li>All {{ submission_count }} user submissions for this problem</li>
-                    <li>User progress data related to this problem</li>
+                    <li>User progress and statistics related to this problem</li>
+                    <li>Any associated files and resources</li>
                 </ul>
             </div>
 
-            <form method="post" style="display: inline;">
+            <form method="post" style="display: inline;" id="deleteForm">
                 {% csrf_token %}
                 <div class="actions">
                     <a href="{% url 'core:admin_problems_list' %}" class="btn btn-secondary">
-                        ← Cancel
+                        <span>⬅️</span> Cancel & Go Back
                     </a>
-                    <button type="submit" class="btn btn-danger" id="confirmDelete">
-                        🗑️ Delete Problem
+                    <button type="button" class="btn btn-danger" id="finalDeleteBtn" style="margin-left: 15px;">
+                    <span>💥</span> DELETE FOREVER
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const problemName = "{{ problem.name }}";
+        
+        document.getElementById('confirmDeleteBtn').addEventListener('click', function() {
+            document.getElementById('confirmationModal').style.display = 'flex';
+            document.getElementById('confirmationInput').focus();
+        });
+
+        function closeModal() {
+            document.getElementById('confirmationModal').style.display = 'none';
+            document.getElementById('confirmationInput').value = '';
+        }
+
+        document.getElementById('finalDeleteBtn').addEventListener('click', function() {
+            const inputValue = document.getElementById('confirmationInput').value.trim();
+            
+            if (inputValue === problemName) {
+                // Show loading state
+                this.innerHTML = '<span>⏳</span> DELETING...';
+                this.disabled = true;
+                
+                // Submit the form
+                document.getElementById('deleteForm').submit();
+            } else {
+                // Shake animation for wrong input
+                const input = document.getElementById('confirmationInput');
+                input.style.borderColor = '#dc3545';
+                input.style.animation = 'shake 0.5s ease-in-out';
+                
+                setTimeout(() => {
+                    input.style.borderColor = '#4a5568';
+                    input.style.animation = '';
+                }, 500);
+                
+                // Show error message
+                if (!document.getElementById('errorMessage')) {
+                    const errorDiv = document.createElement('div');
+                    errorDiv.id = 'errorMessage';
+                    errorDiv.style.color = '#dc3545';
+                    errorDiv.style.marginTop = '10px';
+                    errorDiv.style.fontSize = '14px';
+                    errorDiv.textContent = '❌ Problem name does not match. Deletion cancelled.';
+                    
+                    document.getElementById('confirmationInput').parentNode.appendChild(errorDiv);
+                    
+                    setTimeout(() => {
+                        errorDiv.remove();
+                    }, 3000);
+                }
+            }
+        });
+
+        // Allow Enter key to confirm
+        document.getElementById('confirmationInput').addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') {
+                document.getElementById('finalDeleteBtn').click();
+            } else if (e.key === 'Escape') {
+                closeModal();
+            }
+        });
+
+        // Real-time validation
+        document.getElementById('confirmationInput').addEventListener('input', function() {
+            const deleteBtn = document.getElementById('finalDeleteBtn');
+            if (this.value.trim() === problemName) {
+                deleteBtn.style.background = 'linear-gradient(135deg, #dc3545, #c82333)';
+                deleteBtn.style.opacity = '1';
+            } else {
+                deleteBtn.style.background = '#666';
+                deleteBtn.style.opacity = '0.5';
+            }
+        });
+
+        // Close modal when clicking outside
+        document.getElementById('confirmationModal').addEventListener('click', function(e) {
+            if (e.target === this) {
+                closeModal();
+            }
+        });
+
+        // Add entrance animation
+        document.addEventListener('DOMContentLoaded', function() {
+            const container = document.querySelector('.container');
+            container.style.opacity = '0';
+            container.style.transform = 'scale(0.9) translateY(50px)';
+            
+            setTimeout(() => {
+                container.style.transition = 'all 0.6s ease';
+                container.style.opacity = '1';
+                container.style.transform = 'scale(1) translateY(0)';
+            }, 100);
+
+            // Add typing animation to the problem name
+            const problemNameEl = document.querySelector('.problem-name');
+            const originalText = problemNameEl.textContent;
+            problemNameEl.textContent = '';
+            
+            let i = 0;
+            const typeWriter = setInterval(() => {
+                problemNameEl.textContent = originalText.substring(0, i + 1);
+                i++;
+                if (i >= originalText.length) {
+                    clearInterval(typeWriter);
+                }
+            }, 50);
+        });
+
+        // Add shake animation keyframes
+        const style = document.createElement('style');
+        style.textContent = `
+            @keyframes shake {
+                0%, 100% { transform: translateX(0); }
+                10%, 30%, 50%, 70%, 90% { transform: translateX(-5px); }
+                20%, 40%, 60%, 80% { transform: translateX(5px); }
+            }
+            
+            @keyframes fadeInUp {
+                from {
+                    opacity: 0;
+                    transform: translateY(30px);
+                }
+                to {
+                    opacity: 1;
+                    transform: translateY(0);
+                }
+            }
+            
+            .container {
+                animation: fadeInUp 0.6s ease-out;
+            }
+            
+            .danger-warning {
+                animation: fadeInUp 0.8s ease-out 0.2s both;
+            }
+            
+            .consequences-list {
+                animation: fadeInUp 0.8s ease-out 0.4s both;
+            }
+            
+            .actions {
+                animation: fadeInUp 0.8s ease-out 0.6s both;
+            }
+        `;
+        document.head.appendChild(style);
+
+        // Add countdown timer when delete is clicked
+        let countdownInterval;
+        
+        function startCountdown() {
+            let countdown = 5;
+            const deleteBtn = document.getElementById('finalDeleteBtn');
+            const originalText = deleteBtn.innerHTML;
+            
+            countdownInterval = setInterval(() => {
+                deleteBtn.innerHTML = `<span>⏳</span> DELETING IN ${countdown}...`;
+                countdown--;
+                
+                if (countdown < 0) {
+                    clearInterval(countdownInterval);
+                    deleteBtn.innerHTML = '<span>💥</span> DELETING...';
+                    document.getElementById('deleteForm').submit();
+                }
+            }, 1000);
+        }
+
+        // Add some dramatic effect
+        document.getElementById('confirmDeleteBtn').addEventListener('mouseenter', function() {
+            document.body.style.background = 'linear-gradient(135deg, #0f1419 0%, #2d1b1b 100%)';
+        });
+
+        document.getElementById('confirmDeleteBtn').addEventListener('mouseleave', function() {
+            document.body.style.background = '#0f1419';
+        });
+    </script>
+</body>
+</html>="btn btn-danger" id="confirmDeleteBtn">
+                        <span>🗑️</span> Delete Problem Forever
                     </button>
                 </div>
             </form>
         </div>
     </div>
 
-    <script>
-        document.getElementById('confirmDelete').addEventListener('click', function(e) {
-            e.preventDefault();
-            
-            const problemName = "{{ problem.name }}";
-            const confirmation = prompt(
-                `To confirm deletion, please type the problem name: "${problemName}"`
-            );
-            
-            if (confirmation === problemName) {
-                // Submit the form
-                this.closest('form').submit();
-            } else if (confirmation !== null) {
-                alert('Problem name does not match. Deletion cancelled.');
-            }
-        });
-
-        // Add some visual feedback
-        document.addEventListener('DOMContentLoaded', function() {
-            const container = document.querySelector('.container');
-            container.style.opacity = '0';
-            container.style.transform = 'scale(0.9)';
-            
-            setTimeout(() => {
-                container.style.transition = 'all 0.5s ease';
-                container.style.opacity = '1';
-                container.style.transform = 'scale(1)';
-            }, 100);
-        });
-    </script>
-</body>
-</html>
+    <!-- Confirmation Modal -->
+    <div class="confirmation-modal" id="confirmationModal">
+        <div class="modal-content">
+            <h2 class="modal-title">⚠️ Final Confirmation</h2>
+            <p style="color: #a0aec0; margin-bottom: 20px;">
+                To confirm deletion, please type the exact problem name:
+            </p>
+            <p style="color: #00d4aa; font-weight: 600; margin-bottom: 15px;">
+                "{{ problem.name }}"
+            </p>
+            <input type="text" id="confirmationInput" class="confirmation-input" 
+                   placeholder="Type the problem name here...">
+            <div style="margin-top: 30px;">
+                <button type="button" class="btn btn-secondary" onclick="closeModal()">Cancel</button>
+                <button type="button" class

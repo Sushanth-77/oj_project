@@ -16,4 +16,8 @@ urlpatterns = [
     path('admin/problems/add/', views.admin_add_problem, name='admin_add_problem'),
     path('admin/problems/<str:short_code>/edit/', views.admin_edit_problem, name='admin_edit_problem'),
     path('admin/problems/<str:short_code>/delete/', views.admin_delete_problem, name='admin_delete_problem'),
+    
+    # NEW: Admin submissions management
+    path('admin/submissions/', views.admin_submissions_list, name='admin_submissions_list'),
+    path('admin/submissions/<int:submission_id>/', views.admin_submission_detail, name='admin_submission_detail'),
 ]

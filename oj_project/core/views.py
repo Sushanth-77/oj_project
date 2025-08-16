@@ -522,3 +522,65 @@ def admin_delete_problem(request, short_code):
     }
     
     return render(request, 'admin/delete_problem.html', context)
+@login_required
+@user_passes_test(is_admin)
+def admin_submissions_list(request):
+    """Admin page to view and manage all submissions"""
+    search_query = request.GET.get('search', '').strip()
+    status_filter = request.GET.get('status', '')
+    language_filter = request.GET.get('language', '')
+    
+    # Base queryset
+    submissions = Submission.objects.select_related('user', 'problem').all()
+    
+    # Apply filters
+    if search_query:
+        submissions = submissions.filter(
+            Q(user__username__icontains=search_query) |
+            Q(problem__name__icontains=search_query) |
+            Q(problem__short_code__icontains=search_query) |
+            Q(id__icontains=search_query)
+        )
+    
+    if status_filter:
+        submissions = submissions.filter(verdict=status_filter)
+    
+    if language_filter:
+        submissions = submissions.filter(language=language_filter)
+    
+    # Order by latest first
+    submissions = submissions.order_by('-submitted')
+    
+    # Pagination could be added here
+    submissions = submissions[:100]  # Limit to 100 for now
+    
+    # Calculate statistics
+    total_submissions = Submission.objects.count()
+    accepted_count = Submission.objects.filter(verdict='AC').count()
+    wrong_answer_count = Submission.objects.filter(verdict='WA').count()
+    success_rate = round((accepted_count / total_submissions * 100) if total_submissions > 0 else 0)
+    
+    context = {
+        'submissions': submissions,
+        'search_query': search_query,
+        'status_filter': status_filter,
+        'language_filter': language_filter,
+        'total_submissions': total_submissions,
+        'accepted_count': accepted_count,
+        'wrong_answer_count': wrong_answer_count,
+        'success_rate': success_rate,
+    }
+    
+    return render(request, 'admin/submissions_list.html', context)
+
+@login_required
+@user_passes_test(is_admin)
+def admin_submission_detail(request, submission_id):
+    """Admin page to view detailed submission information"""
+    submission = get_object_or_404(Submission, id=submission_id)
+    
+    context = {
+        'submission': submission,
+    }
+    
+    return render(request, 'admin/submission_detail.html', context)
