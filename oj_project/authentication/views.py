@@ -3,10 +3,6 @@ from django.shortcuts import render, redirect
 from django.contrib.auth.models import User
 from django.contrib import messages
 from django.contrib.auth import authenticate, login, logout
-# Add this to the END of your authentication/views.py file
-
-# Add this to authentication/views.py or create a new management/views.py
-
 from django.http import HttpResponse
 from django.contrib.auth.decorators import user_passes_test
 from django.core.management import call_command
@@ -64,8 +60,6 @@ def run_migrations_now(request):
         
     return HttpResponse(f"<pre>{output.getvalue()}</pre>", content_type="text/html")
 
-# Add this to your authentication/urls.py:
-# path('migrate-now/', run_migrations_now, name='migrate-now'),
 def register_user(request):
     """User registration view"""
     if request.method == 'POST':
@@ -99,7 +93,7 @@ def register_user(request):
     return render(request, 'register.html')
 
 def login_user(request):
-    """User login view"""
+    """User login view with admin redirection"""
     if request.method == "POST":
         username = request.POST.get('username', '').strip()
         password = request.POST.get('password', '').strip()
@@ -119,8 +113,14 @@ def login_user(request):
             return redirect('/auth/login/')
         
         login(request, user)
-        messages.success(request, f'Welcome back, {user.username}!')
-        return redirect('/problems/')  # This now correctly points to /problems/
+        
+        # Check if user is admin/superuser and redirect accordingly
+        if user.is_superuser or user.is_staff:
+            messages.success(request, f'Welcome back, Admin {user.username}!')
+            return redirect('/problems/admin/dashboard/')  # Redirect to admin dashboard
+        else:
+            messages.success(request, f'Welcome back, {user.username}!')
+            return redirect('/problems/')  # Regular users go to problems list
     
     return render(request, 'login.html')
 

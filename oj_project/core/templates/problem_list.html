@@ -485,6 +485,19 @@
                     {% if user.is_authenticated %}
                     <a href="{% url 'core:submissions_list' %}" class="nav-link">My Submissions</a>
                     {% endif %}
+
+                    <!-- Admin Navigation (only shown to admins) -->
+                    {% if user.is_superuser or user.is_staff %}
+                    <div style="border-left: 1px solid var(--border-color); margin-left: 1rem; padding-left: 1rem;">
+                        <span style="color: var(--danger-color); font-weight: 600; font-size: 0.8rem;">ADMIN:</span>
+                        <a href="{% url 'core:admin_dashboard' %}" class="nav-link"
+                            style="color: var(--danger-color);">Dashboard</a>
+                        <a href="{% url 'core:admin_problems_list' %}" class="nav-link"
+                            style="color: var(--danger-color);">Manage</a>
+                        <a href="{% url 'core:admin_add_problem' %}" class="nav-link"
+                            style="color: var(--danger-color);">Add Problem</a>
+                    </div>
+                    {% endif %}
                 </nav>
 
                 <div class="user-profile">
@@ -710,7 +723,7 @@
         document.addEventListener('DOMContentLoaded', function () {
             // Initialize progress bars
             initializeProgressBars();
-            
+
             // Calculate and display remaining problems correctly
             updateRemainingProblems();
 
@@ -762,12 +775,12 @@
                 hardFill.style.width = percentage + '%';
             }
         }
-        
+
         function updateRemainingProblems() {
             const totalProblemsElement = document.querySelector('.quick-stat-number');
             const solvedProblemsElement = document.querySelectorAll('.quick-stat-number')[1];
             const remainingElement = document.querySelectorAll('.quick-stat-number')[3];
-            
+
             if (totalProblemsElement && solvedProblemsElement && remainingElement) {
                 const totalProblems = parseInt(totalProblemsElement.textContent) || 0;
                 const solvedProblems = parseInt(solvedProblemsElement.textContent) || 0;

@@ -74,6 +74,7 @@ urlpatterns = [
     path('auth/', include('authentication.urls')),
     
     # Core app URLs (problems, submissions, etc.)
+    path('django-admin/', admin.site.urls),
     path('problems/', include('core.urls')),
     
     # Custom Admin Dashboard - use different path to avoid conflict
@@ -83,5 +84,7 @@ urlpatterns = [
     path('compiler/', include('compiler.urls')),
     
     # Django built-in admin - keep this LAST
-    path('django-admin/', admin.site.urls),  # Changed from 'admin/' to 'django-admin/'
+      # Changed from 'admin/' to 'django-admin/'
 ]
+
+# oj_project/urls.py

@@ -10,8 +10,17 @@ import json
 from django.core.files.storage import default_storage
 from django.core.files.base import ContentFile
 
+from .admin_utils import check_admin_access
+
+# Replace your existing problems_list function with this updated version:
 def problems_list(request):
     """Display list of all problems with user progress and search functionality"""
+    # Check if admin user should be redirected to admin dashboard
+    if request.user.is_authenticated and (request.user.is_superuser or request.user.is_staff):
+        # If admin user came directly to problems list, show a message with admin options
+        if not request.GET.get('from_admin'):
+            messages.info(request, 'Welcome Admin! You can manage problems from the admin panel above.')
+    
     # Get search query
     search_query = request.GET.get('search', '').strip()
     
@@ -44,6 +53,7 @@ def problems_list(request):
         'medium_count': medium_count,
         'hard_count': hard_count,
         'total_problems_count': total_problems_count,
+        'is_admin': check_admin_access(request.user),
     }
     
     # If user is authenticated, calculate their progress
