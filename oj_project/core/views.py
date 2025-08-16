@@ -470,6 +470,8 @@ def admin_dashboard(request):
     
     return render(request, 'admin/dashboard.html', context)
 
+# In your core/views.py, replace the admin_add_problem function with this fixed version:
+
 @login_required
 @user_passes_test(is_admin)
 def admin_add_problem(request):
@@ -500,9 +502,42 @@ def admin_add_problem(request):
                 difficulty=difficulty
             )
             
-            # Handle file uploads for test cases
+            # Handle manual test cases FIRST (these should be visible examples)
+            test_case_count = 0
+            created_visible_test_cases = 0
+            
+            # Count how many manual test cases were submitted
+            for key in request.POST.keys():
+                if key.startswith('testcase_input_'):
+                    test_case_count += 1
+            
+            # Create manual test cases (these are the example cases, should be visible)
+            for i in range(1, test_case_count + 1):
+                input_key = f'testcase_input_{i}'
+                output_key = f'testcase_output_{i}'
+                hidden_key = f'testcase_hidden_{i}'
+                order_key = f'testcase_order_{i}'
+                
+                test_input = request.POST.get(input_key, '').strip()
+                test_output = request.POST.get(output_key, '').strip()
+                is_hidden = request.POST.get(hidden_key) == 'on'
+                order = request.POST.get(order_key, i)
+                
+                if test_input and test_output:
+                    TestCase.objects.create(
+                        problem=problem,
+                        input=test_input,
+                        output=test_output,
+                        is_hidden=is_hidden,  # Respect the manual setting
+                        order=int(order)
+                    )
+                    if not is_hidden:
+                        created_visible_test_cases += 1
+            
+            # Handle file uploads for test cases (these should be HIDDEN)
             input_file = request.FILES.get('input_file')
             output_file = request.FILES.get('output_file')
+            created_hidden_test_cases = 0
             
             if input_file and output_file:
                 # Read file contents
@@ -523,56 +558,30 @@ def admin_add_problem(request):
                     outputs = [out.strip() for out in output_content.strip().split('\n') if out.strip()]
                 
                 if len(inputs) != len(outputs):
-                    messages.warning(request, f'File mismatch: {len(inputs)} inputs vs {len(outputs)} outputs. Manual test cases will be used.')
+                    messages.warning(request, f'File mismatch: {len(inputs)} inputs vs {len(outputs)} outputs. Only manual test cases will be used.')
                 else:
-                    # Create test cases from files
+                    # Create test cases from files - these should be HIDDEN
+                    starting_order = test_case_count + 1  # Start after manual test cases
                     for i, (inp, out) in enumerate(zip(inputs, outputs)):
                         TestCase.objects.create(
                             problem=problem,
                             input=inp,
                             output=out,
-                            is_hidden=False,  # File-based test cases are visible by default
-                            order=i + 1
+                            is_hidden=True,  # 🔧 FIXED: File uploads are now hidden!
+                            order=starting_order + i
                         )
-                    
-                    messages.success(request, f'Problem "{name}" created successfully with {len(inputs)} test cases from files!')
-                    return redirect('core:admin_problems_list')
+                        created_hidden_test_cases += 1
             
-            # Handle manual test cases
-            test_case_count = 0
-            created_test_cases = 0
-            
-            # Count how many test cases were submitted
-            for key in request.POST.keys():
-                if key.startswith('testcase_input_'):
-                    test_case_count += 1
-            
-            # Create test cases
-            for i in range(1, test_case_count + 1):
-                input_key = f'testcase_input_{i}'
-                output_key = f'testcase_output_{i}'
-                hidden_key = f'testcase_hidden_{i}'
-                order_key = f'testcase_order_{i}'
-                
-                test_input = request.POST.get(input_key, '').strip()
-                test_output = request.POST.get(output_key, '').strip()
-                is_hidden = request.POST.get(hidden_key) == 'on'
-                order = request.POST.get(order_key, i)
-                
-                if test_input and test_output:
-                    TestCase.objects.create(
-                        problem=problem,
-                        input=test_input,
-                        output=test_output,
-                        is_hidden=is_hidden,
-                        order=int(order)
-                    )
-                    created_test_cases += 1
-            
-            if created_test_cases == 0:
-                messages.warning(request, 'Problem created but no test cases were added!')
+            # Provide appropriate success message
+            if created_visible_test_cases > 0 and created_hidden_test_cases > 0:
+                messages.success(request, 
+                    f'Problem "{name}" created successfully with {created_visible_test_cases} visible example test cases and {created_hidden_test_cases} hidden test cases!')
+            elif created_visible_test_cases > 0:
+                messages.success(request, f'Problem "{name}" created successfully with {created_visible_test_cases} visible test cases!')
+            elif created_hidden_test_cases > 0:
+                messages.success(request, f'Problem "{name}" created successfully with {created_hidden_test_cases} hidden test cases!')
             else:
-                messages.success(request, f'Problem "{name}" created successfully with {created_test_cases} test cases!')
+                messages.warning(request, 'Problem created but no test cases were added!')
             
             return redirect('core:admin_problems_list')
             
