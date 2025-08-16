@@ -509,20 +509,65 @@ code_runner = RenderOptimizedRunner()
 test_parser = FastTestParser()
 
 def evaluate_submission(submission, language):
-    """Fast submission evaluation"""
+    """
+    BULLETPROOF submission evaluation that handles:
+    1. Visible database test cases first (if any)
+    2. Hidden file-based test cases second
+    3. Proper timeout handling for recursive algorithms
+    """
     try:
         problem = submission.problem
-        logger.info(f"Evaluating {problem.short_code}")
+        logger.info(f"🚀 Starting evaluation for problem {problem.short_code}")
         
-        # Skip database test cases for speed - focus on file tests
-        return evaluate_file_test_cases(submission, language)
+        # Phase 1: Database test cases (visible test cases)
+        if hasattr(problem, 'testcases'):
+            db_test_cases = problem.testcases.all()
+            
+            if db_test_cases.exists():
+                logger.info(f"📝 Phase 1: Testing {db_test_cases.count()} visible database test cases")
+                
+                for i, test_case in enumerate(db_test_cases, 1):
+                    logger.info(f"🧪 Testing visible case {i}/{db_test_cases.count()}")
+                    
+                    # Execute code with specific timeout for recursive problems
+                    output = code_runner.run_code(
+                        language, 
+                        submission.code_text, 
+                        test_case.input,
+                        timeout_override=15  # Shorter timeout for visible cases
+                    )
+                    
+                    if output is None:
+                        logger.error(f"❌ Runtime error/timeout in visible test case {i}")
+                        return 'TLE'  # More specific error for timeouts
+                    
+                    expected = test_parser.normalize_output(test_case.output)
+                    actual = test_parser.normalize_output(output)
+                    
+                    if expected != actual:
+                        logger.error(f"❌ Wrong answer in visible test case {i}")
+                        logger.error(f"Expected: {repr(expected)}")
+                        logger.error(f"Actual: {repr(actual)}")
+                        return 'WA'
+                    
+                    logger.info(f"✅ Visible test case {i} passed")
+                
+                logger.info("🎉 All visible test cases passed! Moving to hidden tests...")
+        
+        # Phase 2: File-based test cases (hidden test cases)
+        verdict = evaluate_file_test_cases(submission, language)
+        if verdict != 'AC':
+            return verdict
+        
+        logger.info("🎉 All test cases (visible + hidden) passed!")
+        return 'AC'
         
     except Exception as e:
-        logger.error(f"Evaluation error: {str(e)}")
+        logger.error(f"💥 Fatal evaluation error: {str(e)}", exc_info=True)
         return 'RE'
 
 def evaluate_file_test_cases(submission, language):
-    """Optimized file-based test case evaluation with robust double-newline support"""
+    """Optimized file-based test case evaluation with longer timeouts for hidden tests"""
     try:
         problem = submission.problem
         
@@ -539,7 +584,7 @@ def evaluate_file_test_cases(submission, language):
         try:
             input_content = input_file.read_text(encoding='utf-8', errors='replace')
             output_content = output_file.read_text(encoding='utf-8', errors='replace')
-            logger.info(f"Read test files: input={len(input_content)} chars, output={len(output_content)} chars")
+            logger.info(f"Read hidden test files: input={len(input_content)} chars, output={len(output_content)} chars")
         except Exception as e:
             logger.error(f"Error reading test files: {str(e)}")
             return 'RE'
@@ -555,26 +600,30 @@ def evaluate_file_test_cases(submission, language):
             logger.error("Failed to parse any test cases from files")
             return 'RE'
         
-        logger.info(f"Successfully parsed {len(test_cases)} test cases")
+        logger.info(f"Successfully parsed {len(test_cases)} hidden test cases")
         
         # Debug: Show parsed test case structure
         for i, tc in enumerate(test_cases[:3], 1):  # Show first 3 cases for debugging
-            logger.debug(f"Test case {i}: input={repr(tc['input'][:50])}, output={repr(tc['output'][:50])}")
+            logger.debug(f"Hidden test case {i}: input={repr(tc['input'][:50])}, output={repr(tc['output'][:50])}")
         
-        # Run test cases with enhanced comparison
+        # Run test cases with enhanced comparison and longer timeout for hidden tests
         for i, test_case in enumerate(test_cases, 1):
-            logger.info(f"Executing test case {i}/{len(test_cases)}")
+            logger.info(f"Executing hidden test case {i}/{len(test_cases)}")
             
-            # Execute code with the test input
+            # Execute code with longer timeout for hidden/complex test cases
+            # This allows recursive algorithms more time on hidden tests
+            timeout = 25 if language == 'cpp' else 20  # Longer timeout for hidden tests
+            
             actual_output = code_runner.run_code(
                 language, 
                 submission.code_text, 
-                test_case['input']
+                test_case['input'],
+                timeout_override=timeout
             )
             
             if actual_output is None:
-                logger.error(f"Runtime error in test case {i}")
-                return 'RE'
+                logger.error(f"Runtime error/timeout in hidden test case {i}")
+                return 'TLE'  # Return TLE for timeout on hidden tests
             
             # Normalize both outputs for comparison
             expected = test_parser.normalize_output(test_case['output'])
@@ -584,9 +633,9 @@ def evaluate_file_test_cases(submission, language):
             if not test_parser.detailed_comparison(expected, actual, i):
                 return 'WA'
             
-            logger.info(f"✅ Test case {i} passed")
+            logger.info(f"✅ Hidden test case {i} passed")
         
-        logger.info(f"🎉 All {len(test_cases)} test cases passed!")
+        logger.info(f"🎉 All {len(test_cases)} hidden test cases passed!")
         return 'AC'
         
     except Exception as e:
