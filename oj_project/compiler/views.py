@@ -389,12 +389,29 @@ class TestCaseFormatDetector:
         logger.debug(f"First 3 input lines: {input_lines[:3]}")
         logger.debug(f"First 3 output lines: {output_lines[:3]}")
         
-        # Strategy 1: Check for empty line separated input sections with single line outputs
+        # Strategy 1: Check for empty line separated sections (most reliable)
         input_sections = input_content.strip().split('\n\n')
         input_sections = [section.strip() for section in input_sections if section.strip()]
         
-        if len(input_sections) > 1 and len(input_sections) == len(output_lines):
-            # This handles the FIFO case: input sections separated by empty lines, single line outputs
+        output_sections = output_content.strip().split('\n\n')  
+        output_sections = [section.strip() for section in output_sections if section.strip()]
+        
+        logger.info(f"Found {len(input_sections)} input sections and {len(output_sections)} output sections")
+        
+        # Check if we have matching sections (most common case)
+        if len(input_sections) > 1 and len(input_sections) == len(output_sections):
+            pairs = []
+            for inp_section, out_section in zip(input_sections, output_sections):
+                pairs.append((inp_section.strip(), out_section.strip()))
+            
+            return {
+                'type': 'sections_to_sections',
+                'description': f'Input/output sections separated by empty lines ({len(pairs)} cases)',
+                'pairs': pairs
+            }
+        
+        # Check if input sections match output lines
+        elif len(input_sections) > 1 and len(input_sections) == len(output_lines):
             pairs = []
             for inp_section, out_line in zip(input_sections, output_lines):
                 pairs.append((inp_section.strip(), out_line.strip()))
@@ -404,90 +421,6 @@ class TestCaseFormatDetector:
                 'description': f'Input sections separated by empty lines, single line outputs ({len(pairs)} cases)',
                 'pairs': pairs
             }
-        
-        # Strategy 2: Equal number of lines - likely one test case per line
-        if len(input_lines) == len(output_lines) and len(input_lines) > 1:
-            # Check if inputs look like single values or simple expressions
-            simple_inputs = 0
-            for line in input_lines[:min(5, len(input_lines))]:
-                # Count lines that look like single numbers, simple expressions, or short strings
-                if (line.replace('-', '').replace('.', '').replace(' ', '').isdigit() or
-                    len(line.split()) <= 3 or
-                    re.match(r'^[a-zA-Z0-9\s\-+*/]+$', line)):
-                    simple_inputs += 1
-            
-            if simple_inputs >= len(input_lines[:5]) * 0.8:  # 80% are simple
-                return {
-                    'type': 'line_by_line',
-                    'description': f'Each line is one test case ({len(input_lines)} total)',
-                    'pairs': list(zip(input_lines, output_lines))
-                }
-        
-        # Strategy 3: Check if first line is a count
-        if len(input_lines) > 1 and input_lines[0].strip().isdigit():
-            test_count = int(input_lines[0])
-            remaining_input_lines = input_lines[1:]
-            
-            logger.info(f"First line indicates {test_count} test cases")
-            
-            if 0 < test_count <= 1000:  # Reasonable test count
-                if len(remaining_input_lines) == test_count and len(output_lines) == test_count:
-                    # Simple: one line per test case after count
-                    return {
-                        'type': 'count_then_lines',
-                        'description': f'Count ({test_count}) followed by one line per test case',
-                        'count': test_count,
-                        'pairs': list(zip(remaining_input_lines, output_lines))
-                    }
-                elif len(remaining_input_lines) % test_count == 0:
-                    # Multiple lines per test case
-                    lines_per_case = len(remaining_input_lines) // test_count
-                    pairs = []
-                    for i in range(test_count):
-                        start = i * lines_per_case
-                        end = start + lines_per_case
-                        case_input = '\n'.join(remaining_input_lines[start:end])
-                        case_output = output_lines[i] if i < len(output_lines) else ""
-                        pairs.append((case_input, case_output))
-                    
-                    return {
-                        'type': 'count_then_multiline',
-                        'description': f'Count ({test_count}) followed by {lines_per_case} lines per test case',
-                        'count': test_count,
-                        'lines_per_case': lines_per_case,
-                        'pairs': pairs
-                    }
-        
-        # Strategy 4: Multi-line test cases separated by empty lines (both input and output)
-        output_sections = output_content.strip().split('\n\n')
-        output_sections = [section.strip() for section in output_sections if section.strip()]
-        
-        if len(input_sections) > 1 and len(input_sections) == len(output_sections):
-            pairs = []
-            for inp_section, out_section in zip(input_sections, output_sections):
-                pairs.append((inp_section.strip(), out_section.strip()))
-            
-            return {
-                'type': 'empty_line_separated',
-                'description': f'Multi-line test cases separated by empty lines ({len(pairs)} cases)',
-                'pairs': pairs
-            }
-        
-        # Strategy 5: Single large test case with multiple outputs
-        if len(output_lines) > 1 and len(input_lines) != len(output_lines):
-            # Could be one input producing multiple outputs
-            return {
-                'type': 'single_input_multi_output',
-                'description': 'Single input case producing multiple output lines',
-                'pairs': [(input_content.strip(), output_content.strip())]
-            }
-        
-        # Fallback: Treat as single test case
-        return {
-            'type': 'single_case',
-            'description': 'Single test case (entire content)',
-            'pairs': [(input_content.strip(), output_content.strip())]
-        }
 
 def evaluate_file_based_test_cases(submission, language):
     """
