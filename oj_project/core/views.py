@@ -224,7 +224,51 @@ def get_user_progress(user):
             'total_solved': 0,
             'remaining_problems': total_problems_count,
         }
-
+def problems_list(request):
+    """Display list of all problems with search and filtering"""
+    search_query = request.GET.get('search', '').strip()
+    difficulty_filter = request.GET.get('difficulty', '')
+    
+    # Base queryset
+    problems = Problem.objects.all()
+    
+    # Apply search filter
+    if search_query:
+        problems = problems.filter(
+            Q(name__icontains=search_query) |
+            Q(short_code__icontains=search_query) |
+            Q(statement__icontains=search_query)
+        )
+    
+    # Apply difficulty filter
+    if difficulty_filter:
+        problems = problems.filter(difficulty=difficulty_filter)
+    
+    # Order by difficulty and name
+    problems = problems.order_by('difficulty', 'name')
+    
+    # Get user progress for authenticated users
+    user_progress = get_user_progress(request.user)
+    
+    # Count problems by difficulty
+    all_problems = Problem.objects.all()
+    easy_count = all_problems.filter(difficulty='E').count()
+    medium_count = all_problems.filter(difficulty='M').count()
+    hard_count = all_problems.filter(difficulty='H').count()
+    total_count = all_problems.count()
+    
+    context = {
+        'problems': problems,
+        'search_query': search_query,
+        'difficulty_filter': difficulty_filter,
+        'user_progress': user_progress,
+        'easy_count': easy_count,
+        'medium_count': medium_count,
+        'hard_count': hard_count,
+        'total_count': total_count,
+    }
+    
+    return render(request, 'problems_list.html', context)
 def problem_detail(request, short_code):
     """Display problem details and handle submission"""
     try:
