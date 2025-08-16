@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -56,7 +57,8 @@
             border-left: 4px solid transparent;
         }
 
-        .nav-item:hover, .nav-item.active {
+        .nav-item:hover,
+        .nav-item.active {
             background: rgba(0, 212, 170, 0.1);
             color: #00d4aa;
             border-left-color: #00d4aa;
@@ -449,34 +451,35 @@
                 transform: translateX(-100%);
                 transition: transform 0.3s ease;
             }
-            
+
             .main-content {
                 margin-left: 0;
             }
-            
+
             .header {
                 padding: 15px 20px;
             }
-            
+
             .content {
                 padding: 20px;
             }
-            
+
             .toolbar {
                 flex-direction: column;
                 align-items: stretch;
             }
-            
+
             .search-box {
                 width: 100%;
             }
-            
+
             .stats-bar {
                 grid-template-columns: repeat(2, 1fr);
             }
         }
     </style>
 </head>
+
 <body>
     <!-- Sidebar -->
     <nav class="sidebar">
@@ -525,18 +528,18 @@
             {% if messages %}
             <div class="messages">
                 {% for message in messages %}
-                    <div class="message {{ message.tags }}">
-                        {% if message.tags == 'success' %}
-                            <span>✅</span>
-                        {% elif message.tags == 'error' %}
-                            <span>❌</span>
-                        {% elif message.tags == 'warning' %}
-                            <span>⚠️</span>
-                        {% else %}
-                            <span>ℹ️</span>
-                        {% endif %}
-                        {{ message }}
-                    </div>
+                <div class="message {{ message.tags }}">
+                    {% if message.tags == 'success' %}
+                    <span>✅</span>
+                    {% elif message.tags == 'error' %}
+                    <span>❌</span>
+                    {% elif message.tags == 'warning' %}
+                    <span>⚠️</span>
+                    {% else %}
+                    <span>ℹ️</span>
+                    {% endif %}
+                    {{ message }}
+                </div>
                 {% endfor %}
             </div>
             {% endif %}
@@ -550,17 +553,17 @@
                 </div>
                 <div class="stat-card">
                     <span class="stat-icon">🟢</span>
-                    <span class="stat-number">{% with easy_count=problems|length %}{{ easy_count }}{% endwith %}</span>
+                    <span class="stat-number">{{ easy_count }}</span>
                     <span class="stat-label">Easy Problems</span>
                 </div>
                 <div class="stat-card">
                     <span class="stat-icon">🟡</span>
-                    <span class="stat-number">{% with medium_count=problems|length %}{{ medium_count }}{% endwith %}</span>
+                    <span class="stat-number">{{ medium_count }}</span>
                     <span class="stat-label">Medium Problems</span>
                 </div>
                 <div class="stat-card">
                     <span class="stat-icon">🔴</span>
-                    <span class="stat-number">{% with hard_count=problems|length %}{{ hard_count }}{% endwith %}</span>
+                    <span class="stat-number">{{ hard_count }}</span>
                     <span class="stat-label">Hard Problems</span>
                 </div>
             </div>
@@ -569,117 +572,115 @@
             <div class="toolbar">
                 <div class="search-container">
                     <form method="get" style="display: flex; gap: 15px; align-items: center; width: 100%;">
-                        <input type="text" 
-                               name="search" 
-                               class="search-box"
-                               placeholder="🔍 Search problems by name, code, or content..."
-                               value="{{ search_query }}">
+                        <input type="text" name="search" class="search-box"
+                            placeholder="🔍 Search problems by name, code, or content..." value="{{ search_query }}">
                         <button type="submit" class="btn btn-secondary">Search</button>
                         {% if search_query %}
-                            <a href="{% url 'core:admin_problems_list' %}" class="btn btn-secondary">Clear</a>
+                        <a href="{% url 'core:admin_problems_list' %}" class="btn btn-secondary">Clear</a>
                         {% endif %}
                     </form>
                 </div>
             </div>
 
             {% if problems %}
-                <!-- Problems Table -->
-                <div class="problems-table">
-                    <div class="table-header">
-                        <h2 class="table-title">
-                            <span>📋</span> All Problems
-                        </h2>
-                        <span class="table-stats">{{ problems|length }} problems found</span>
-                    </div>
-                    
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>Problem Info</th>
-                                <th>Difficulty</th>
-                                <th>Statement Preview</th>
-                                <th>Test Cases</th>
-                                <th>Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for problem in problems %}
-                            <tr>
-                                <td>
-                                    <div class="problem-info">
-                                        <h4>{{ problem.name }}</h4>
-                                        <div class="problem-code">{{ problem.short_code }}</div>
-                                    </div>
-                                </td>
-                                <td>
-                                    <span class="difficulty-badge difficulty-{% if problem.difficulty == 'E' %}easy{% elif problem.difficulty == 'M' %}medium{% else %}hard{% endif %}">
-                                        {% if problem.difficulty == 'E' %}Easy
-                                        {% elif problem.difficulty == 'M' %}Medium
-                                        {% else %}Hard{% endif %}
-                                    </span>
-                                </td>
-                                <td>
-                                    <div class="problem-statement">
-                                        {{ problem.statement|truncatechars:100 }}
-                                    </div>
-                                </td>
-                                <td>
-                                    <div class="testcase-info">
-                                        <div class="testcase-count">{{ problem.testcases.count }} cases</div>
-                                        <div class="testcase-details">
-                                            {% with visible=problem.testcases.count %}
-                                            {{ visible }} visible
-                                            {% endwith %}
-                                        </div>
-                                    </div>
-                                </td>
-                                <td>
-                                    <div class="actions">
-                                        <a href="{% url 'core:problem_detail' problem.short_code %}" 
-                                           class="btn btn-info btn-sm" 
-                                           target="_blank">👁️ View</a>
-                                        <a href="{% url 'core:admin_edit_problem' problem.short_code %}" 
-                                           class="btn btn-warning btn-sm">✏️ Edit</a>
-                                        <a href="{% url 'core:admin_delete_problem' problem.short_code %}" 
-                                           class="btn btn-danger btn-sm"
-                                           onclick="return confirm('Are you sure you want to delete this problem?')">🗑️ Delete</a>
-                                    </div>
-                                </td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
+            <!-- Problems Table -->
+            <div class="problems-table">
+                <div class="table-header">
+                    <h2 class="table-title">
+                        <span>📋</span> All Problems
+                    </h2>
+                    <span class="table-stats">{{ problems|length }} problems found</span>
                 </div>
+
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Problem Info</th>
+                            <th>Difficulty</th>
+                            <th>Statement Preview</th>
+                            <th>Test Cases</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for problem in problems %}
+                        <tr>
+                            <td>
+                                <div class="problem-info">
+                                    <h4>{{ problem.name }}</h4>
+                                    <div class="problem-code">{{ problem.short_code }}</div>
+                                </div>
+                            </td>
+                            <td>
+                                <span
+                                    class="difficulty-badge difficulty-{% if problem.difficulty == 'E' %}easy{% elif problem.difficulty == 'M' %}medium{% else %}hard{% endif %}">
+                                    {% if problem.difficulty == 'E' %}Easy
+                                    {% elif problem.difficulty == 'M' %}Medium
+                                    {% else %}Hard{% endif %}
+                                </span>
+                            </td>
+                            <td>
+                                <div class="problem-statement">
+                                    {{ problem.statement|truncatechars:100 }}
+                                </div>
+                            </td>
+                            <td>
+                                <div class="testcase-info">
+                                    <div class="testcase-count">{{ problem.testcases.count }} cases</div>
+                                    <div class="testcase-details">
+                                        {% with visible=problem.testcases.count %}
+                                        {{ visible }} visible
+                                        {% endwith %}
+                                    </div>
+                                </div>
+                            </td>
+                            <td>
+                                <div class="actions">
+                                    <a href="{% url 'core:problem_detail' problem.short_code %}"
+                                        class="btn btn-info btn-sm" target="_blank">👁️ View</a>
+                                    <a href="{% url 'core:admin_edit_problem' problem.short_code %}"
+                                        class="btn btn-warning btn-sm">✏️ Edit</a>
+                                    <a href="{% url 'core:admin_delete_problem' problem.short_code %}"
+                                        class="btn btn-danger btn-sm"
+                                        onclick="return confirm('Are you sure you want to delete this problem?')">🗑️
+                                        Delete</a>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
             {% else %}
-                <div class="problems-table">
-                    <div class="empty-state">
-                        <div class="empty-state-icon">📚</div>
-                        <h2>No Problems Found</h2>
-                        <p>
-                            {% if search_query %}
-                                No problems match your search query "<strong>{{ search_query }}</strong>".
-                                <br><a href="{% url 'core:admin_problems_list' %}" style="color: #00d4aa;">View all problems</a>
-                            {% else %}
-                                Start by adding your first problem to the system.
-                            {% endif %}
-                        </p>
-                        <a href="{% url 'core:admin_add_problem' %}" class="btn btn-primary">
-                            ➕ Add Your First Problem
-                        </a>
-                    </div>
+            <div class="problems-table">
+                <div class="empty-state">
+                    <div class="empty-state-icon">📚</div>
+                    <h2>No Problems Found</h2>
+                    <p>
+                        {% if search_query %}
+                        No problems match your search query "<strong>{{ search_query }}</strong>".
+                        <br><a href="{% url 'core:admin_problems_list' %}" style="color: #00d4aa;">View all problems</a>
+                        {% else %}
+                        Start by adding your first problem to the system.
+                        {% endif %}
+                    </p>
+                    <a href="{% url 'core:admin_add_problem' %}" class="btn btn-primary">
+                        ➕ Add Your First Problem
+                    </a>
                 </div>
+            </div>
             {% endif %}
         </div>
     </main>
 
     <script>
-        document.addEventListener('DOMContentLoaded', function() {
+        document.addEventListener('DOMContentLoaded', function () {
             // Animate table rows on load
             const rows = document.querySelectorAll('tbody tr');
             rows.forEach((row, index) => {
                 row.style.opacity = '0';
                 row.style.transform = 'translateX(-20px)';
-                
+
                 setTimeout(() => {
                     row.style.transition = 'all 0.4s ease';
                     row.style.opacity = '1';
@@ -700,7 +701,7 @@
             // Add loading state to buttons
             const actionButtons = document.querySelectorAll('.actions .btn');
             actionButtons.forEach(button => {
-                button.addEventListener('click', function(e) {
+                button.addEventListener('click', function (e) {
                     if (this.href && !this.href.includes('javascript:')) {
                         this.style.opacity = '0.7';
                         this.innerHTML = '<span>⏳</span> Loading...';
@@ -711,8 +712,8 @@
             // Enhanced search with debounce
             const searchBox = document.querySelector('.search-box');
             let searchTimeout;
-            
-            searchBox.addEventListener('input', function() {
+
+            searchBox.addEventListener('input', function () {
                 clearTimeout(searchTimeout);
                 searchTimeout = setTimeout(() => {
                     // Could implement live search here
@@ -721,4 +722,5 @@
         });
     </script>
 </body>
+
 </html>

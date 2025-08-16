@@ -140,21 +140,14 @@ def admin_analytics(request):
     
     return render(request, 'admin/analytics.html', context)
 
-def problems_list(request):
-    """Display list of all problems with user progress and search functionality"""
-    # Check if admin user should be redirected to admin dashboard
-    if request.user.is_authenticated and (request.user.is_superuser or request.user.is_staff):
-        # If admin user came directly to problems list, show a message with admin options
-        if not request.GET.get('from_admin'):
-            messages.info(request, 'Welcome Admin! You can manage problems from the admin panel above.')
-    
-    # Get search query
+@login_required
+@user_passes_test(is_admin)
+def admin_problems_list(request):
+    """Admin page to view and manage all problems"""
     search_query = request.GET.get('search', '').strip()
     
-    # Base queryset
     problems = Problem.objects.all()
     
-    # Apply search filter if query exists
     if search_query:
         problems = problems.filter(
             Q(name__icontains=search_query) |
@@ -162,76 +155,25 @@ def problems_list(request):
             Q(statement__icontains=search_query)
         )
     
-    # Order problems
-    problems = problems.order_by('difficulty', 'name')
+    problems = problems.order_by('-id')  # Latest first
     
-    # Get counts for all problems (not just filtered ones)
+    # Calculate difficulty counts from ALL problems (not just filtered ones)
     all_problems = Problem.objects.all()
     easy_count = all_problems.filter(difficulty='E').count()
     medium_count = all_problems.filter(difficulty='M').count()
     hard_count = all_problems.filter(difficulty='H').count()
-    total_problems_count = all_problems.count()
+    total_problems = all_problems.count()
     
-    # Initialize context data
     context = {
         'problems': problems,
         'search_query': search_query,
+        'total_problems': total_problems,
         'easy_count': easy_count,
         'medium_count': medium_count,
         'hard_count': hard_count,
-        'total_problems_count': total_problems_count,
-        'is_admin': check_admin_access(request.user),
     }
     
-    # If user is authenticated, calculate their progress
-    if request.user.is_authenticated:
-        # Get all accepted submissions for this user
-        accepted_submissions = Submission.objects.filter(
-            user=request.user,
-            verdict='AC'
-        ).values_list('problem__short_code', flat=True).distinct()
-        
-        solved_problems = set(accepted_submissions)
-        
-        # Count solved problems by difficulty (from all problems, not just filtered)
-        easy_solved = 0
-        medium_solved = 0
-        hard_solved = 0
-        
-        for problem in all_problems:
-            if problem.short_code in solved_problems:
-                if problem.difficulty == 'E':
-                    easy_solved += 1
-                elif problem.difficulty == 'M':
-                    medium_solved += 1
-                elif problem.difficulty == 'H':
-                    hard_solved += 1
-        
-        total_solved = len(solved_problems)
-        remaining_problems = total_problems_count - total_solved
-        
-        user_progress = {
-            'solved_problems': solved_problems,
-            'easy_completed': easy_solved,
-            'medium_completed': medium_solved,
-            'hard_completed': hard_solved,
-            'total_solved': total_solved,
-            'remaining_problems': remaining_problems,
-        }
-        
-        context['user_progress'] = user_progress
-    else:
-        # Default progress for non-authenticated users
-        context['user_progress'] = {
-            'solved_problems': set(),
-            'easy_completed': 0,
-            'medium_completed': 0,
-            'hard_completed': 0,
-            'total_solved': 0,
-            'remaining_problems': total_problems_count,
-        }
-    
-    return render(request, 'problem_list.html', context)
+    return render(request, 'admin/problems_list.html', context)
 
 def get_user_progress(user):
     """Helper function to calculate user progress"""
@@ -516,9 +458,18 @@ def admin_add_problem(request):
                 input_content = input_file.read().decode('utf-8')
                 output_content = output_file.read().decode('utf-8')
                 
-                # Split by double newlines for multiple test cases
-                inputs = input_content.strip().split('\n\n')
-                outputs = output_content.strip().split('\n\n')
+                # Split by double newlines OR single newlines based on content
+                # First try double newlines (preferred format)
+                if '\n\n' in input_content:
+                    inputs = [inp.strip() for inp in input_content.strip().split('\n\n') if inp.strip()]
+                else:
+                    # If no double newlines, split by single newlines (each line is a test case)
+                    inputs = [inp.strip() for inp in input_content.strip().split('\n') if inp.strip()]
+                
+                if '\n\n' in output_content:
+                    outputs = [out.strip() for out in output_content.strip().split('\n\n') if out.strip()]
+                else:
+                    outputs = [out.strip() for out in output_content.strip().split('\n') if out.strip()]
                 
                 if len(inputs) != len(outputs):
                     messages.warning(request, f'File mismatch: {len(inputs)} inputs vs {len(outputs)} outputs. Manual test cases will be used.')
@@ -527,8 +478,8 @@ def admin_add_problem(request):
                     for i, (inp, out) in enumerate(zip(inputs, outputs)):
                         TestCase.objects.create(
                             problem=problem,
-                            input=inp.strip(),
-                            output=out.strip(),
+                            input=inp,
+                            output=out,
                             is_hidden=False,  # File-based test cases are visible by default
                             order=i + 1
                         )
