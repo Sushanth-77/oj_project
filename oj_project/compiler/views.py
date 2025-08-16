@@ -1,4 +1,4 @@
-# compiler/views.py - Improved version with flexible test case handling
+# compiler/views.py - BULLETPROOF VERSION
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404
 from django.contrib.auth.decorators import login_required
@@ -16,6 +16,7 @@ import time
 import random
 import logging
 import re
+import signal
 
 # Set up logging
 logger = logging.getLogger(__name__)
@@ -281,7 +282,9 @@ def get_language_display(submission):
         language_map = {
             'py': 'Python 3',
             'cpp': 'C++',
-            'c': 'C'
+            'c': 'C',
+            'java': 'Java',
+            'js': 'JavaScript'
         }
         return language_map.get(submission.language, 'Unknown')
     
@@ -294,491 +297,1074 @@ def get_language_display(submission):
             return 'C++'
         else:
             return 'C'
+    elif 'public static void main' in code:
+        return 'Java'
     else:
         return 'Unknown'
 
-def get_docker_safe_base_path():
-    """Get base path that works in Docker environment"""
-    try:
-        from django.conf import settings
-        base_path = Path(settings.BASE_DIR)
-    except:
-        base_path = Path("/app")  # Default Docker working directory
-    
-    # Ensure the path exists
-    if not base_path.exists():
-        base_path = Path.cwd()
-    
-    return base_path
+# ============================
+# BULLETPROOF CODE EXECUTION SYSTEM
+# ============================
 
-def normalize_output(output):
-    """Normalize output for comparison - handles different line endings and whitespace"""
-    if output is None:
-        return ""
+class SecureCodeRunner:
+    """Ultra-secure and reliable code runner that handles ANY format"""
     
-    # Remove all types of line endings and normalize to \n
-    normalized = output.replace('\r\n', '\n').replace('\r', '\n')
-    
-    # Split into lines, strip each line, and rejoin
-    lines = [line.rstrip() for line in normalized.split('\n')]
-    
-    # Remove empty lines from the end
-    while lines and not lines[-1]:
-        lines.pop()
-    
-    return '\n'.join(lines)
-
-def evaluate_submission(submission, language):
-    """
-    Main evaluation function that handles both database and file-based test cases
-    """
-    problem = submission.problem
-    
-    try:
-        logger.info(f"Starting evaluation for problem {problem.short_code}")
+    def __init__(self):
+        self.temp_base = self._get_temp_base()
+        self.timeout_limits = {
+            'py': 30,
+            'cpp': 25,
+            'c': 25,
+            'java': 35,
+            'js': 20
+        }
+        self.compile_timeout = 30
         
-        # Phase 1: Evaluate visible test cases from database (if any)
-        visible_test_cases = problem.testcases.filter(is_hidden=False) if hasattr(problem.testcases.first(), 'is_hidden') else problem.testcases.all()
+    def _get_temp_base(self):
+        """Get the best temporary directory for this environment"""
+        candidates = ['/tmp', '/var/tmp', str(Path.home() / 'tmp')]
         
-        if visible_test_cases.exists():
-            logger.info(f"Phase 1: Evaluating {visible_test_cases.count()} visible test cases from database...")
-            for i, test_case in enumerate(visible_test_cases, 1):
-                logger.info(f"Testing database test case {i}")
+        for candidate in candidates:
+            try:
+                test_dir = Path(candidate)
+                test_dir.mkdir(exist_ok=True)
                 
-                output = run_code_safe(language, submission.code_text, test_case.input)
-                if output is None:
-                    logger.error(f"Runtime error in database test case {i}")
-                    return 'RE'
+                # Test write permissions
+                test_file = test_dir / f"test_{uuid.uuid4().hex[:8]}.txt"
+                test_file.write_text("test")
+                test_file.unlink()
                 
-                expected = normalize_output(test_case.output)
-                actual = normalize_output(output)
-                
-                if expected != actual:
-                    logger.error(f"MISMATCH in database test case {i}")
-                    logger.error(f"Expected: {repr(expected)}")
-                    logger.error(f"Actual: {repr(actual)}")
-                    return 'WA'
-                else:
-                    logger.info(f"✓ Database test case {i} PASSED")
+                return test_dir
+            except:
+                continue
         
-        # Phase 2: Evaluate file-based test cases
-        file_verdict = evaluate_file_based_test_cases(submission, language)
-        if file_verdict != 'AC':
-            return file_verdict
+        # Fallback to current directory
+        return Path.cwd() / 'temp'
+    
+    def run_code(self, language, code, input_data=""):
+        """
+        Run code with ANY input and return output
+        This is the main entry point - it NEVER fails unexpectedly
+        """
+        unique_id = uuid.uuid4().hex[:12]
+        temp_dir = None
+        
+        try:
+            # Create secure workspace
+            temp_dir = self.temp_base / f"oj_run_{unique_id}"
+            temp_dir.mkdir(parents=True, exist_ok=True)
             
-        logger.info("All test cases passed!")
-        return 'AC'
+            logger.info(f"🔧 Running {language} code in {temp_dir}")
+            
+            # Normalize input
+            if input_data is None:
+                input_data = ""
+            
+            # Route to appropriate runner
+            if language == 'py' or language == 'python':
+                return self._run_python(code, input_data, temp_dir, unique_id)
+            elif language == 'cpp':
+                return self._run_cpp(code, input_data, temp_dir, unique_id)
+            elif language == 'c':
+                return self._run_c(code, input_data, temp_dir, unique_id)
+            elif language == 'java':
+                return self._run_java(code, input_data, temp_dir, unique_id)
+            elif language == 'js' or language == 'javascript':
+                return self._run_javascript(code, input_data, temp_dir, unique_id)
+            else:
+                logger.error(f"❌ Unsupported language: {language}")
+                return None
+                
+        except Exception as e:
+            logger.error(f"💥 Fatal error in run_code: {str(e)}", exc_info=True)
+            return None
+        finally:
+            # ALWAYS cleanup
+            if temp_dir and temp_dir.exists():
+                try:
+                    shutil.rmtree(temp_dir, ignore_errors=True)
+                except:
+                    pass
+    
+    def _run_python(self, code, input_data, temp_dir, unique_id):
+        """Run Python code with bulletproof execution"""
+        try:
+            # Find Python interpreter
+            python_cmd = self._find_python()
+            if not python_cmd:
+                logger.error("❌ Python interpreter not found")
+                return None
+            
+            # Create files
+            code_file = temp_dir / f"{unique_id}.py"
+            input_file = temp_dir / f"{unique_id}_input.txt"
+            output_file = temp_dir / f"{unique_id}_output.txt"
+            error_file = temp_dir / f"{unique_id}_error.txt"
+            
+            # Write files safely
+            code_file.write_text(code, encoding='utf-8')
+            input_file.write_text(input_data, encoding='utf-8')
+            
+            # Execute with maximum safety
+            cmd = [python_cmd, str(code_file)]
+            
+            with open(input_file, 'r') as stdin_f:
+                with open(output_file, 'w') as stdout_f:
+                    with open(error_file, 'w') as stderr_f:
+                        
+                        process = subprocess.Popen(
+                            cmd,
+                            stdin=stdin_f,
+                            stdout=stdout_f,
+                            stderr=stderr_f,
+                            cwd=str(temp_dir),
+                            text=True,
+                            preexec_fn=os.setsid if hasattr(os, 'setsid') else None
+                    )
+                    
+                    try:
+                        return_code = process.wait(timeout=self.timeout_limits['js'])
+                    except subprocess.TimeoutExpired:
+                        try:
+                            os.killpg(os.getpgid(process.pid), signal.SIGTERM)
+                        except:
+                            process.terminate()
+                        
+                        try:
+                            process.wait(timeout=5)
+                        except subprocess.TimeoutExpired:
+                            try:
+                                os.killpg(os.getpgid(process.pid), signal.SIGKILL)
+                            except:
+                                process.kill()
+                        
+                        logger.error("⏰ JavaScript execution timed out")
+                        return None
         
+        if return_code != 0:
+            error_content = ""
+            if error_file.exists():
+                error_content = error_file.read_text(encoding='utf-8', errors='ignore')
+            logger.error(f"❌ JavaScript execution failed (code {return_code}): {error_content[:200]}")
+            return None
+        
+        # Read output
+        if output_file.exists():
+            output = output_file.read_text(encoding='utf-8', errors='ignore')
+            logger.info(f"✅ JavaScript execution successful, output: {len(output)} chars")
+            return output
+        else:
+            return ""
+            
     except Exception as e:
-        logger.error(f"Exception during evaluation: {str(e)}", exc_info=True)
-        return 'RE'
+        logger.error(f"💥 JavaScript execution error: {str(e)}", exc_info=True)
+        return None
 
-class TestCaseFormatDetector:
-    """Advanced test case format detector and parser with improved logic"""
+# Helper methods for finding compilers/interpreters
+def _find_python(self):
+    """Find Python interpreter with priority order"""
+    candidates = [
+        '/usr/local/bin/python3',
+        '/usr/bin/python3',
+        '/opt/python3/bin/python3',
+        'python3',
+        '/usr/bin/python',
+        'python'
+    ]
+    
+    for cmd in candidates:
+        try:
+            result = subprocess.run(
+                [cmd, '--version'], 
+                capture_output=True, 
+                timeout=5, 
+                text=True
+            )
+            if result.returncode == 0 and '3.' in result.stdout:
+                logger.info(f"✅ Found Python: {cmd}")
+                return cmd
+        except (FileNotFoundError, subprocess.TimeoutExpired):
+            continue
+    
+    return None
+
+def _find_cpp_compiler(self):
+    """Find C++ compiler"""
+    candidates = [
+        '/usr/bin/g++',
+        '/usr/local/bin/g++',
+        '/opt/gcc/bin/g++',
+        'g++',
+        '/usr/bin/clang++',
+        'clang++'
+    ]
+    
+    for cmd in candidates:
+        try:
+            result = subprocess.run(
+                [cmd, '--version'], 
+                capture_output=True, 
+                timeout=5, 
+                text=True
+            )
+            if result.returncode == 0:
+                logger.info(f"✅ Found C++ compiler: {cmd}")
+                return cmd
+        except (FileNotFoundError, subprocess.TimeoutExpired):
+            continue
+    
+    return None
+
+def _find_c_compiler(self):
+    """Find C compiler"""
+    candidates = [
+        '/usr/bin/gcc',
+        '/usr/local/bin/gcc',
+        '/opt/gcc/bin/gcc',
+        'gcc',
+        '/usr/bin/clang',
+        'clang'
+    ]
+    
+    for cmd in candidates:
+        try:
+            result = subprocess.run(
+                [cmd, '--version'], 
+                capture_output=True, 
+                timeout=5, 
+                text=True
+            )
+            if result.returncode == 0:
+                logger.info(f"✅ Found C compiler: {cmd}")
+                return cmd
+        except (FileNotFoundError, subprocess.TimeoutExpired):
+            continue
+    
+    return None
+
+def _find_javac(self):
+    """Find Java compiler"""
+    candidates = [
+        '/usr/bin/javac',
+        '/usr/local/bin/javac',
+        '/opt/java/bin/javac',
+        'javac'
+    ]
+    
+    for cmd in candidates:
+        try:
+            result = subprocess.run(
+                [cmd, '-version'], 
+                capture_output=True, 
+                timeout=5, 
+                text=True
+            )
+            if result.returncode == 0:
+                logger.info(f"✅ Found Java compiler: {cmd}")
+                return cmd
+        except (FileNotFoundError, subprocess.TimeoutExpired):
+            continue
+    
+    return None
+
+def _find_java(self):
+    """Find Java runtime"""
+    candidates = [
+        '/usr/bin/java',
+        '/usr/local/bin/java',
+        '/opt/java/bin/java',
+        'java'
+    ]
+    
+    for cmd in candidates:
+        try:
+            result = subprocess.run(
+                [cmd, '-version'], 
+                capture_output=True, 
+                timeout=5, 
+                text=True
+            )
+            if result.returncode == 0:
+                logger.info(f"✅ Found Java runtime: {cmd}")
+                return cmd
+        except (FileNotFoundError, subprocess.TimeoutExpired):
+            continue
+    
+    return None
+
+def _find_nodejs(self):
+    """Find Node.js"""
+    candidates = [
+        '/usr/bin/node',
+        '/usr/local/bin/node',
+        '/opt/node/bin/node',
+        'node',
+        'nodejs'
+    ]
+    
+    for cmd in candidates:
+        try:
+            result = subprocess.run(
+                [cmd, '--version'], 
+                capture_output=True, 
+                timeout=5, 
+                text=True
+            )
+            if result.returncode == 0:
+                logger.info(f"✅ Found Node.js: {cmd}")
+                return cmd
+        except (FileNotFoundError, subprocess.TimeoutExpired):
+            continue
+    
+    return None
+
+def _extract_java_class_name(self, code):
+    """Extract the main class name from Java code"""
+    import re
+    
+    # Look for public class with main method
+    main_class_pattern = r'public\s+class\s+(\w+)(?=.*public\s+static\s+void\s+main)'
+    match = re.search(main_class_pattern, code, re.DOTALL | re.IGNORECASE)
+    
+    if match:
+        return match.group(1)
+    
+    # Fallback: look for any public class
+    class_pattern = r'public\s+class\s+(\w+)'
+    match = re.search(class_pattern, code, re.IGNORECASE)
+    
+    if match:
+        return match.group(1)
+    
+    # Last resort: look for any class
+    class_pattern = r'class\s+(\w+)'
+    match = re.search(class_pattern, code, re.IGNORECASE)
+    
+    if match:
+        return match.group(1)
+    
+    return None
+
+
+# ============================
+# ADVANCED TEST CASE PARSER
+# ============================
+
+class UniversalTestCaseParser:
+    """Handles ANY test case format you throw at it"""
     
     @staticmethod
-    def detect_format(input_content, output_content):
+    def normalize_output(text):
+        """Normalize output for comparison"""
+        if text is None:
+            return ""
+        
+        # Handle different line endings
+        normalized = text.replace('\r\n', '\n').replace('\r', '\n')
+        
+        # Split into lines and strip each line
+        lines = [line.rstrip() for line in normalized.split('\n')]
+        
+        # Remove empty lines from the end
+        while lines and not lines[-1]:
+            lines.pop()
+        
+        return '\n'.join(lines)
+    
+    @staticmethod
+    def parse_test_cases(input_content, output_content):
         """
-        Detect the format of test cases with improved logic for FIFO-style problems
-        Returns format information and parsing strategy
+        Universal test case parser that handles ALL formats:
+        1. Empty line separated sections
+        2. Line-by-line pairs
+        3. Multi-line input to single line output
+        4. Complex mixed formats
         """
+        logger.info("🔍 Starting universal test case parsing...")
+        
+        if not input_content.strip() or not output_content.strip():
+            logger.warning("⚠️ Empty input or output content")
+            return []
+        
+        # Strategy 1: Try empty line separated sections (most common)
+        result = UniversalTestCaseParser._try_section_parsing(input_content, output_content)
+        if result:
+            logger.info(f"✅ Parsed {len(result)} test cases using section method")
+            return result
+        
+        # Strategy 2: Try line-by-line matching
+        result = UniversalTestCaseParser._try_line_parsing(input_content, output_content)
+        if result:
+            logger.info(f"✅ Parsed {len(result)} test cases using line method")
+            return result
+        
+        # Strategy 3: Try intelligent splitting
+        result = UniversalTestCaseParser._try_intelligent_parsing(input_content, output_content)
+        if result:
+            logger.info(f"✅ Parsed {len(result)} test cases using intelligent method")
+            return result
+        
+        # Strategy 4: Treat as single test case
+        logger.warning("⚠️ Falling back to single test case")
+        return [{
+            'input': input_content.strip(),
+            'output': output_content.strip(),
+            'case_number': 1
+        }]
+    
+    @staticmethod
+    def _try_section_parsing(input_content, output_content):
+        """Parse sections separated by double newlines"""
+        input_sections = [s.strip() for s in input_content.strip().split('\n\n') if s.strip()]
+        output_sections = [s.strip() for s in output_content.strip().split('\n\n') if s.strip()]
+        
+        # Perfect match - same number of sections
+        if len(input_sections) > 1 and len(input_sections) == len(output_sections):
+            return [
+                {
+                    'input': inp.strip(),
+                    'output': out.strip(),
+                    'case_number': i + 1
+                }
+                for i, (inp, out) in enumerate(zip(input_sections, output_sections))
+            ]
+        
+        # Input sections match output lines
+        output_lines = [line.strip() for line in output_content.strip().split('\n') if line.strip()]
+        if len(input_sections) > 1 and len(input_sections) == len(output_lines):
+            return [
+                {
+                    'input': inp.strip(),
+                    'output': out.strip(),
+                    'case_number': i + 1
+                }
+                for i, (inp, out) in enumerate(zip(input_sections, output_lines))
+            ]
+        
+        return None
+    
+    @staticmethod
+    def _try_line_parsing(input_content, output_content):
+        """Parse line by line"""
         input_lines = [line.strip() for line in input_content.strip().split('\n') if line.strip()]
         output_lines = [line.strip() for line in output_content.strip().split('\n') if line.strip()]
         
-        logger.info(f"Format detection: {len(input_lines)} input lines, {len(output_lines)} output lines")
-        logger.debug(f"First 3 input lines: {input_lines[:3]}")
-        logger.debug(f"First 3 output lines: {output_lines[:3]}")
+        if len(input_lines) == len(output_lines) and len(input_lines) > 1:
+            return [
+                {
+                    'input': inp,
+                    'output': out,
+                    'case_number': i + 1
+                }
+                for i, (inp, out) in enumerate(zip(input_lines, output_lines))
+            ]
         
-        # Strategy 1: Check for empty line separated sections (most reliable)
-        input_sections = input_content.strip().split('\n\n')
-        input_sections = [section.strip() for section in input_sections if section.strip()]
-        
-        output_sections = output_content.strip().split('\n\n')  
-        output_sections = [section.strip() for section in output_sections if section.strip()]
-        
-        logger.info(f"Found {len(input_sections)} input sections and {len(output_sections)} output sections")
-        
-        # Check if we have matching sections (most common case)
-        if len(input_sections) > 1 and len(input_sections) == len(output_sections):
-            pairs = []
-            for inp_section, out_section in zip(input_sections, output_sections):
-                pairs.append((inp_section.strip(), out_section.strip()))
-            
-            return {
-                'type': 'sections_to_sections',
-                'description': f'Input/output sections separated by empty lines ({len(pairs)} cases)',
-                'pairs': pairs
-            }
-        
-        # Check if input sections match output lines
-        elif len(input_sections) > 1 and len(input_sections) == len(output_lines):
-            pairs = []
-            for inp_section, out_line in zip(input_sections, output_lines):
-                pairs.append((inp_section.strip(), out_line.strip()))
-            
-            return {
-                'type': 'sections_to_lines',
-                'description': f'Input sections separated by empty lines, single line outputs ({len(pairs)} cases)',
-                'pairs': pairs
-            }
-
-def evaluate_file_based_test_cases(submission, language):
-    """
-    Improved file-based test case evaluation with better format detection
-    """
-    problem = submission.problem
-    base_path = get_docker_safe_base_path()
+        return None
     
-    input_path = base_path / "inputs" / f"{problem.short_code}.txt"
-    output_path = base_path / "outputs" / f"{problem.short_code}.txt"
-    
-    if not input_path.exists() or not output_path.exists():
-        logger.info(f"No test files found for {problem.short_code}")
-        return 'AC'
-    
-    try:
-        # Read test files
-        with open(input_path, 'r', encoding='utf-8') as f:
-            input_content = f.read()
+    @staticmethod
+    def _try_intelligent_parsing(input_content, output_content):
+        """Intelligent parsing for complex formats"""
+        input_lines = input_content.strip().split('\n')
+        output_lines = output_content.strip().split('\n')
         
-        with open(output_path, 'r', encoding='utf-8') as f:
-            output_content = f.read()
+        # Look for patterns like multiple numbers per line in input
+        # and single numbers in output
+        input_groups = []
+        current_group = []
         
-        logger.info(f"Read {len(input_content)} chars input, {len(output_content)} chars output")
-        
-        # Detect format and get test case pairs
-        format_info = TestCaseFormatDetector.detect_format(input_content, output_content)
-        logger.info(f"Detected format: {format_info['type']} - {format_info['description']}")
-        
-        test_pairs = format_info['pairs']
-        logger.info(f"Found {len(test_pairs)} test case pairs")
-        
-        # Execute each test case
-        for i, (test_input, expected_output) in enumerate(test_pairs, 1):
-            logger.info(f"=== Testing case {i}/{len(test_pairs)} ===")
-            logger.debug(f"Input: {repr(test_input[:100])}{'...' if len(test_input) > 100 else ''}")
-            logger.debug(f"Expected: {repr(expected_output[:100])}{'...' if len(expected_output) > 100 else ''}")
-            
-            # Run the code
-            actual_output = run_code_safe(language, submission.code_text, test_input)
-            
-            if actual_output is None:
-                logger.error(f"Runtime error in test case {i}")
-                return 'RE'
-            
-            # Normalize and compare outputs
-            expected_clean = normalize_output(expected_output)
-            actual_clean = normalize_output(actual_output)
-            
-            logger.debug(f"Actual: {repr(actual_clean[:100])}{'...' if len(actual_clean) > 100 else ''}")
-            
-            if expected_clean != actual_clean:
-                logger.error(f"MISMATCH in test case {i}")
-                logger.error(f"Expected ({len(expected_clean)} chars): {repr(expected_clean[:200])}")
-                logger.error(f"Actual ({len(actual_clean)} chars): {repr(actual_clean[:200])}")
-                
-                # Show character-by-character diff for debugging
-                min_len = min(len(expected_clean), len(actual_clean))
-                for j in range(min_len):
-                    if expected_clean[j] != actual_clean[j]:
-                        logger.error(f"First difference at position {j}:")
-                        logger.error(f"  Expected: {repr(expected_clean[j])} (ord {ord(expected_clean[j])})")
-                        logger.error(f"  Actual: {repr(actual_clean[j])} (ord {ord(actual_clean[j])})")
-                        break
-                
-                if len(expected_clean) != len(actual_clean):
-                    logger.error(f"Length mismatch: expected {len(expected_clean)}, got {len(actual_clean)}")
-                
-                return 'WA'
+        for line in input_lines:
+            line = line.strip()
+            if not line:
+                if current_group:
+                    input_groups.append('\n'.join(current_group))
+                    current_group = []
             else:
-                logger.info(f"✓ Test case {i} PASSED")
+                current_group.append(line)
         
+        if current_group:
+            input_groups.append('\n'.join(current_group))
+        
+        # Filter out empty groups
+        input_groups = [g for g in input_groups if g.strip()]
+        output_lines = [line.strip() for line in output_lines if line.strip()]
+        
+        if len(input_groups) == len(output_lines) and len(input_groups) > 1:
+            return [
+                {
+                    'input': inp,
+                    'output': out,
+                    'case_number': i + 1
+                }
+                for i, (inp, out) in enumerate(zip(input_groups, output_lines))
+            ]
+        
+        return None
+
+
+# ============================
+# MAIN EVALUATION SYSTEM
+# ============================
+
+# Global runner instance
+code_runner = SecureCodeRunner()
+test_parser = UniversalTestCaseParser()
+
+def evaluate_submission(submission, language):
+    """
+    BULLETPROOF submission evaluation that handles:
+    - Database test cases
+    - File-based test cases
+    - ANY input format
+    - Multiple languages
+    - Comprehensive error handling
+    """
+    try:
+        problem = submission.problem
+        logger.info(f"🚀 Starting evaluation for problem {problem.short_code}")
+        
+        # Phase 1: Database test cases (if any)
+        if hasattr(problem, 'testcases'):
+            db_test_cases = problem.testcases.all()
+            
+            if db_test_cases.exists():
+                logger.info(f"📝 Phase 1: Testing {db_test_cases.count()} database test cases")
+                
+                for i, test_case in enumerate(db_test_cases, 1):
+                    logger.info(f"🧪 Testing database case {i}")
+                    
+                    output = code_runner.run_code(language, submission.code_text, test_case.input)
+                    
+                    if output is None:
+                        logger.error(f"❌ Runtime error in database test case {i}")
+                        return 'RE'
+                    
+                    expected = test_parser.normalize_output(test_case.output)
+                    actual = test_parser.normalize_output(output)
+                    
+                    if expected != actual:
+                        logger.error(f"❌ Wrong answer in database test case {i}")
+                        logger.error(f"Expected: {repr(expected[:100])}")
+                        logger.error(f"Actual: {repr(actual[:100])}")
+                        return 'WA'
+                    
+                    logger.info(f"✅ Database test case {i} passed")
+        
+        # Phase 2: File-based test cases
+        verdict = evaluate_file_test_cases(submission, language)
+        if verdict != 'AC':
+            return verdict
+        
+        logger.info("🎉 All test cases passed!")
         return 'AC'
         
     except Exception as e:
-        logger.error(f"Error in file-based test case evaluation: {str(e)}", exc_info=True)
+        logger.error(f"💥 Fatal evaluation error: {str(e)}", exc_info=True)
         return 'RE'
 
+def evaluate_file_test_cases(submission, language):
+    """Evaluate file-based test cases with universal parsing"""
+    try:
+        problem = submission.problem
+        
+        # Find test files
+        base_dir = Path(settings.BASE_DIR)
+        input_file = base_dir / "inputs" / f"{problem.short_code}.txt"
+        output_file = base_dir / "outputs" / f"{problem.short_code}.txt"
+        
+        if not input_file.exists() or not output_file.exists():
+            logger.info(f"📁 No test files found for {problem.short_code}")
+            return 'AC'  # No file tests = AC
+        
+        # Read test files
+        input_content = input_file.read_text(encoding='utf-8', errors='ignore')
+        output_content = output_file.read_text(encoding='utf-8', errors='ignore')
+        
+        logger.info(f"📖 Read {len(input_content)} chars input, {len(output_content)} chars output")
+        
+        # Parse test cases
+        test_cases = test_parser.parse_test_cases(input_content, output_content)
+        
+        if not test_cases:
+            logger.error("❌ No test cases could be parsed")
+            return 'RE'
+        
+        logger.info(f"🧪 Testing {len(test_cases)} file-based test cases")
+        
+        # Run each test case
+        for test_case in test_cases:
+            case_num = test_case['case_number']
+            test_input = test_case['input']
+            expected_output = test_case['output']
+            
+            logger.info(f"🧪 Testing case {case_num}/{len(test_cases)}")
+            logger.debug(f"Input: {repr(test_input[:50])}{'...' if len(test_input) > 50 else ''}")
+            logger.debug(f"Expected: {repr(expected_output[:50])}{'...' if len(expected_output) > 50 else ''}")
+            
+            # Execute code
+            actual_output = code_runner.run_code(language, submission.code_text, test_input)
+            
+            if actual_output is None:
+                logger.error(f"❌ Runtime error in test case {case_num}")
+                return 'RE'
+            
+            # Compare outputs
+            expected_clean = test_parser.normalize_output(expected_output)
+            actual_clean = test_parser.normalize_output(actual_output)
+            
+            if expected_clean != actual_clean:
+                logger.error(f"❌ Wrong answer in test case {case_num}")
+                logger.error(f"Expected ({len(expected_clean)} chars): {repr(expected_clean[:100])}")
+                logger.error(f"Actual ({len(actual_clean)} chars): {repr(actual_clean[:100])}")
+                
+                # Show detailed diff
+                show_detailed_diff(expected_clean, actual_clean)
+                return 'WA'
+            
+            logger.info(f"✅ Test case {case_num} passed")
+        
+        return 'AC'
+        
+    except Exception as e:
+        logger.error(f"💥 File test evaluation error: {str(e)}", exc_info=True)
+        return 'RE'
+
+def show_detailed_diff(expected, actual):
+    """Show detailed character-by-character diff for debugging"""
+    min_len = min(len(expected), len(actual))
+    
+    # Find first difference
+    for i in range(min_len):
+        if expected[i] != actual[i]:
+            logger.error(f"🔍 First difference at position {i}:")
+            logger.error(f"   Expected: {repr(expected[i])} (ord {ord(expected[i])})")
+            logger.error(f"   Actual: {repr(actual[i])} (ord {ord(actual[i])})")
+            
+            # Show context around the difference
+            start = max(0, i - 10)
+            end = min(len(expected), i + 10)
+            logger.error(f"   Context expected: {repr(expected[start:end])}")
+            
+            end = min(len(actual), i + 10)
+            logger.error(f"   Context actual: {repr(actual[start:end])}")
+            break
+    
+    if len(expected) != len(actual):
+        logger.error(f"🔍 Length difference: expected {len(expected)}, got {len(actual)}")
+
+
+# ============================
+# LEGACY COMPATIBILITY
+# ============================
+
 def run_code_safe(language, code, input_data):
-    """
-    Safe code execution with improved error handling and resource management
-    """
-    unique = str(uuid.uuid4())[:8]
-    temp_dir = None
-    
-    try:
-        # Create secure temporary directory
-        if os.path.exists('/tmp'):
-            temp_base = '/tmp'
-        else:
-            temp_base = get_docker_safe_base_path() / 'temp'
-            temp_base.mkdir(exist_ok=True)
-        
-        temp_dir = tempfile.mkdtemp(prefix=f"oj_exec_{unique}_", dir=temp_base)
-        temp_path = Path(temp_dir)
-        
-        logger.debug(f"Created temp directory: {temp_dir}")
-        
-        # Set up file paths
-        extensions = {'py': '.py', 'cpp': '.cpp', 'c': '.c'}
-        if language not in extensions:
-            logger.error(f"Unsupported language: {language}")
-            return None
-        
-        code_file_path = temp_path / f"{unique}{extensions[language]}"
-        input_file_path = temp_path / f"{unique}_input.txt"
-        output_file_path = temp_path / f"{unique}_output.txt"
-        
-        # Write files
-        try:
-            with open(code_file_path, "w", encoding='utf-8') as f:
-                f.write(code)
-            
-            with open(input_file_path, "w", encoding='utf-8') as f:
-                f.write(input_data if input_data is not None else '')
-        except Exception as e:
-            logger.error(f"Failed to write files: {e}")
-            return None
-        
-        # Execute based on language
-        if language == 'py':
-            return execute_python_improved(code_file_path, input_file_path, output_file_path)
-        elif language == 'cpp':
-            return execute_cpp_improved(code_file_path, input_file_path, output_file_path, temp_path, unique)
-        elif language == 'c':
-            return execute_c_improved(code_file_path, input_file_path, output_file_path, temp_path, unique)
-        
-        return None
-        
-    except Exception as e:
-        logger.error(f"Error in run_code_safe: {str(e)}", exc_info=True)
-        return None
-    finally:
-        # Cleanup
-        if temp_dir and os.path.exists(temp_dir):
-            try:
-                shutil.rmtree(temp_dir)
-            except Exception as cleanup_error:
-                logger.warning(f"Cleanup error: {cleanup_error}")
+    """Legacy compatibility - redirects to new system"""
+    return code_runner.run_code(language, code, input_data)
 
-def execute_python_improved(code_file_path, input_file_path, output_file_path):
-    """Improved Python execution with better error handling"""
-    try:
-        # Find Python interpreter
-        python_commands = ['/usr/local/bin/python3', '/usr/bin/python3', 'python3', 'python']
-        python_cmd = None
-        
-        for cmd in python_commands:
-            try:
-                result = subprocess.run([cmd, '--version'], capture_output=True, timeout=3, text=True)
-                if result.returncode == 0:
-                    python_cmd = cmd
-                    logger.debug(f"Found Python: {cmd}")
-                    break
-            except (FileNotFoundError, subprocess.TimeoutExpired):
-                continue
-        
-        if not python_cmd:
-            logger.error("No Python interpreter found")
-            return None
-        
-        # Execute with proper resource limits
-        try:
-            with open(input_file_path, "r", encoding='utf-8') as stdin_file:
-                with open(output_file_path, "w", encoding='utf-8') as stdout_file:
-                    process = subprocess.run(
-                        [python_cmd, str(code_file_path)],
-                        stdin=stdin_file,
-                        stdout=stdout_file,
-                        stderr=subprocess.PIPE,
-                        timeout=15,  # Increased timeout
-                        text=True,
-                        cwd=str(code_file_path.parent)
-                    )
-                    
-                    if process.returncode != 0:
-                        logger.error(f"Python execution failed with code {process.returncode}")
-                        if process.stderr:
-                            logger.error(f"Python stderr: {process.stderr}")
-                        return None
-            
-            # Read output
-            if output_file_path.exists():
-                with open(output_file_path, "r", encoding='utf-8') as f:
-                    output = f.read()
-                    logger.debug(f"Python execution successful, output: {len(output)} chars")
-                    return output
-            else:
-                logger.error("Python output file not created")
-                return None
-                
-        except subprocess.TimeoutExpired:
-            logger.error("Python execution timed out")
-            return None
-            
-    except Exception as e:
-        logger.error(f"Python execution error: {str(e)}", exc_info=True)
-        return None
-
-def execute_cpp_improved(code_file_path, input_file_path, output_file_path, temp_path, unique):
-    """Improved C++ execution"""
-    try:
-        executable_path = temp_path / unique
-        
-        # Find g++ compiler
-        compilers = ['/usr/bin/g++', 'g++']
-        compiler = None
-        
-        for cmd in compilers:
-            try:
-                result = subprocess.run([cmd, '--version'], capture_output=True, timeout=3, text=True)
-                if result.returncode == 0:
-                    compiler = cmd
-                    logger.debug(f"Found g++: {cmd}")
-                    break
-            except (FileNotFoundError, subprocess.TimeoutExpired):
-                continue
-        
-        if not compiler:
-            logger.error("g++ compiler not found")
-            return None
-        
-        # Compile
-        compile_process = subprocess.run(
-            [compiler, "-o", str(executable_path), str(code_file_path), 
-             "-std=c++17", "-O2", "-Wall", "-Wextra"],
-            capture_output=True,
-            timeout=20,
-            text=True
-        )
-        
-        if compile_process.returncode != 0:
-            logger.error(f"C++ compilation failed: {compile_process.stderr}")
-            return None
-        
-        # Execute
-        try:
-            with open(input_file_path, "r", encoding='utf-8') as stdin_file:
-                with open(output_file_path, "w", encoding='utf-8') as stdout_file:
-                    process = subprocess.run(
-                        [str(executable_path)],
-                        stdin=stdin_file,
-                        stdout=stdout_file,
-                        stderr=subprocess.PIPE,
-                        timeout=15,
-                        text=True
-                    )
-                    
-                    if process.returncode != 0:
-                        logger.error(f"C++ execution failed: {process.stderr}")
-                        return None
-            
-            # Read output
-            if output_file_path.exists():
-                with open(output_file_path, "r", encoding='utf-8') as f:
-                    return f.read()
-            else:
-                logger.error("C++ output file not created")
-                return None
-                
-        except subprocess.TimeoutExpired:
-            logger.error("C++ execution timed out")
-            return None
-            
-    except Exception as e:
-        logger.error(f"C++ execution error: {str(e)}", exc_info=True)
-        return None
-
-def execute_c_improved(code_file_path, input_file_path, output_file_path, temp_path, unique):
-    """Improved C execution"""
-    try:
-        executable_path = temp_path / unique
-        
-        # Find gcc compiler
-        compilers = ['/usr/bin/gcc', 'gcc']
-        compiler = None
-        
-        for cmd in compilers:
-            try:
-                result = subprocess.run([cmd, '--version'], capture_output=True, timeout=3, text=True)
-                if result.returncode == 0:
-                    compiler = cmd
-                    logger.debug(f"Found gcc: {cmd}")
-                    break
-            except (FileNotFoundError, subprocess.TimeoutExpired):
-                continue
-        
-        if not compiler:
-            logger.error("gcc compiler not found")
-            return None
-        
-        # Compile
-        compile_process = subprocess.run(
-            [compiler, "-o", str(executable_path), str(code_file_path), 
-             "-std=c99", "-O2", "-Wall", "-Wextra", "-lm"],
-            capture_output=True,
-            timeout=20,
-            text=True
-        )
-        
-        if compile_process.returncode != 0:
-            logger.error(f"C compilation failed: {compile_process.stderr}")
-            return None
-        
-        # Execute
-        try:
-            with open(input_file_path, "r", encoding='utf-8') as stdin_file:
-                with open(output_file_path, "w", encoding='utf-8') as stdout_file:
-                    process = subprocess.run(
-                        [str(executable_path)],
-                        stdin=stdin_file,
-                        stdout=stdout_file,
-                        stderr=subprocess.PIPE,
-                        timeout=15,
-                        text=True
-                    )
-                    
-                    if process.returncode != 0:
-                        logger.error(f"C execution failed: {process.stderr}")
-                        return None
-            
-            # Read output
-            if output_file_path.exists():
-                with open(output_file_path, "r", encoding='utf-8') as f:
-                    return f.read()
-            else:
-                logger.error("C output file not created")
-                return None
-                
-        except subprocess.TimeoutExpired:
-            logger.error("C execution timed out")
-            return None
-            
-    except Exception as e:
-        logger.error(f"C execution error: {str(e)}", exc_info=True)
-        return None
-
-
-# Legacy functions for backward compatibility
 def run_code(language, code, input_data):
-    """Legacy function - redirects to improved version"""
-    return run_code_safe(language, code, input_data)
+    """Legacy compatibility - redirects to new system"""
+    return code_runner.run_code(language, code, input_data)
 
-def detect_test_case_format(input_content, output_content):
-    """Legacy function - redirects to improved detector"""
-    return TestCaseFormatDetector.detect_format(input_content, output_content)
+def normalize_output(output):
+    """Legacy compatibility - redirects to new system"""
+    return test_parser.normalize_output(output)
 
-def parse_test_cases_smart(input_content, output_content):
-    """Legacy function - redirects to improved parser"""
-    format_info = TestCaseFormatDetector.detect_format(input_content, output_content)
-    test_cases = []
+def get_docker_safe_base_path():
+    """Get base path that works in any environment"""
+    try:
+        return Path(settings.BASE_DIR)
+    except:
+        return Path("/app") if Path("/app").exists() else Path.cwd() else None
+                        )
+                        
+                        try:
+                            return_code = process.wait(timeout=self.timeout_limits['py'])
+                        except subprocess.TimeoutExpired:
+                            # Kill the entire process group
+                            try:
+                                os.killpg(os.getpgid(process.pid), signal.SIGTERM)
+                            except:
+                                process.terminate()
+                            
+                            try:
+                                process.wait(timeout=5)
+                            except subprocess.TimeoutExpired:
+                                try:
+                                    os.killpg(os.getpgid(process.pid), signal.SIGKILL)
+                                except:
+                                    process.kill()
+                            
+                            logger.error("⏰ Python execution timed out")
+                            return None
+            
+            # Check execution result
+            if return_code != 0:
+                error_content = ""
+                if error_file.exists():
+                    error_content = error_file.read_text(encoding='utf-8', errors='ignore')
+                logger.error(f"❌ Python execution failed (code {return_code}): {error_content[:200]}")
+                return None
+            
+            # Read output
+            if output_file.exists():
+                output = output_file.read_text(encoding='utf-8', errors='ignore')
+                logger.info(f"✅ Python execution successful, output: {len(output)} chars")
+                return output
+            else:
+                logger.warning("⚠️ No output file generated")
+                return ""
+                
+        except Exception as e:
+            logger.error(f"💥 Python execution error: {str(e)}", exc_info=True)
+            return None
     
-    for i, (test_input, expected_output) in enumerate(format_info['pairs'], 1):
-        test_cases.append({
-            'input': test_input,
-            'output': expected_output,
-            'case_number': i,
-            'is_multiline': '\n' in test_input
-        })
+    def _run_cpp(self, code, input_data, temp_dir, unique_id):
+        """Run C++ code with bulletproof compilation and execution"""
+        try:
+            # Find compiler
+            compiler = self._find_cpp_compiler()
+            if not compiler:
+                logger.error("❌ C++ compiler not found")
+                return None
+            
+            # Create files
+            code_file = temp_dir / f"{unique_id}.cpp"
+            executable = temp_dir / f"{unique_id}_exec"
+            input_file = temp_dir / f"{unique_id}_input.txt"
+            output_file = temp_dir / f"{unique_id}_output.txt"
+            compile_error_file = temp_dir / f"{unique_id}_compile_error.txt"
+            runtime_error_file = temp_dir / f"{unique_id}_runtime_error.txt"
+            
+            # Write source code
+            code_file.write_text(code, encoding='utf-8')
+            input_file.write_text(input_data, encoding='utf-8')
+            
+            # Compile with comprehensive flags
+            compile_cmd = [
+                compiler, 
+                str(code_file), 
+                '-o', str(executable),
+                '-std=c++17',
+                '-O2',
+                '-Wall', '-Wextra',
+                '-static-libgcc', '-static-libstdc++'
+            ]
+            
+            with open(compile_error_file, 'w') as stderr_f:
+                compile_process = subprocess.run(
+                    compile_cmd,
+                    stderr=stderr_f,
+                    timeout=self.compile_timeout,
+                    text=True
+                )
+            
+            if compile_process.returncode != 0:
+                error_content = compile_error_file.read_text(encoding='utf-8', errors='ignore')
+                logger.error(f"❌ C++ compilation failed: {error_content[:200]}")
+                return None
+            
+            # Execute
+            with open(input_file, 'r') as stdin_f:
+                with open(output_file, 'w') as stdout_f:
+                    with open(runtime_error_file, 'w') as stderr_f:
+                        
+                        process = subprocess.Popen(
+                            [str(executable)],
+                            stdin=stdin_f,
+                            stdout=stdout_f,
+                            stderr=stderr_f,
+                            cwd=str(temp_dir),
+                            text=True,
+                            preexec_fn=os.setsid if hasattr(os, 'setsid') else None
+                        )
+                        
+                        try:
+                            return_code = process.wait(timeout=self.timeout_limits['cpp'])
+                        except subprocess.TimeoutExpired:
+                            # Kill process group
+                            try:
+                                os.killpg(os.getpgid(process.pid), signal.SIGTERM)
+                            except:
+                                process.terminate()
+                            
+                            try:
+                                process.wait(timeout=5)
+                            except subprocess.TimeoutExpired:
+                                try:
+                                    os.killpg(os.getpgid(process.pid), signal.SIGKILL)
+                                except:
+                                    process.kill()
+                            
+                            logger.error("⏰ C++ execution timed out")
+                            return None
+            
+            if return_code != 0:
+                error_content = ""
+                if runtime_error_file.exists():
+                    error_content = runtime_error_file.read_text(encoding='utf-8', errors='ignore')
+                logger.error(f"❌ C++ execution failed (code {return_code}): {error_content[:200]}")
+                return None
+            
+            # Read output
+            if output_file.exists():
+                output = output_file.read_text(encoding='utf-8', errors='ignore')
+                logger.info(f"✅ C++ execution successful, output: {len(output)} chars")
+                return output
+            else:
+                return ""
+                
+        except Exception as e:
+            logger.error(f"💥 C++ execution error: {str(e)}", exc_info=True)
+            return None
     
-    return test_cases
+    def _run_c(self, code, input_data, temp_dir, unique_id):
+        """Run C code with bulletproof compilation and execution"""
+        try:
+            # Find compiler
+            compiler = self._find_c_compiler()
+            if not compiler:
+                logger.error("❌ C compiler not found")
+                return None
+            
+            # Create files
+            code_file = temp_dir / f"{unique_id}.c"
+            executable = temp_dir / f"{unique_id}_exec"
+            input_file = temp_dir / f"{unique_id}_input.txt"
+            output_file = temp_dir / f"{unique_id}_output.txt"
+            compile_error_file = temp_dir / f"{unique_id}_compile_error.txt"
+            runtime_error_file = temp_dir / f"{unique_id}_runtime_error.txt"
+            
+            # Write source code
+            code_file.write_text(code, encoding='utf-8')
+            input_file.write_text(input_data, encoding='utf-8')
+            
+            # Compile
+            compile_cmd = [
+                compiler, 
+                str(code_file), 
+                '-o', str(executable),
+                '-std=c99',
+                '-O2',
+                '-Wall', '-Wextra',
+                '-lm'  # Link math library
+            ]
+            
+            with open(compile_error_file, 'w') as stderr_f:
+                compile_process = subprocess.run(
+                    compile_cmd,
+                    stderr=stderr_f,
+                    timeout=self.compile_timeout,
+                    text=True
+                )
+            
+            if compile_process.returncode != 0:
+                error_content = compile_error_file.read_text(encoding='utf-8', errors='ignore')
+                logger.error(f"❌ C compilation failed: {error_content[:200]}")
+                return None
+            
+            # Execute
+            with open(input_file, 'r') as stdin_f:
+                with open(output_file, 'w') as stdout_f:
+                    with open(runtime_error_file, 'w') as stderr_f:
+                        
+                        process = subprocess.Popen(
+                            [str(executable)],
+                            stdin=stdin_f,
+                            stdout=stdout_f,
+                            stderr=stderr_f,
+                            cwd=str(temp_dir),
+                            text=True,
+                            preexec_fn=os.setsid if hasattr(os, 'setsid') else None
+                        )
+                        
+                        try:
+                            return_code = process.wait(timeout=self.timeout_limits['c'])
+                        except subprocess.TimeoutExpired:
+                            try:
+                                os.killpg(os.getpgid(process.pid), signal.SIGTERM)
+                            except:
+                                process.terminate()
+                            
+                            try:
+                                process.wait(timeout=5)
+                            except subprocess.TimeoutExpired:
+                                try:
+                                    os.killpg(os.getpgid(process.pid), signal.SIGKILL)
+                                except:
+                                    process.kill()
+                            
+                            logger.error("⏰ C execution timed out")
+                            return None
+            
+            if return_code != 0:
+                error_content = ""
+                if runtime_error_file.exists():
+                    error_content = runtime_error_file.read_text(encoding='utf-8', errors='ignore')
+                logger.error(f"❌ C execution failed (code {return_code}): {error_content[:200]}")
+                return None
+            
+            # Read output
+            if output_file.exists():
+                output = output_file.read_text(encoding='utf-8', errors='ignore')
+                logger.info(f"✅ C execution successful, output: {len(output)} chars")
+                return output
+            else:
+                return ""
+                
+        except Exception as e:
+            logger.error(f"💥 C execution error: {str(e)}", exc_info=True)
+            return None
+    
+    def _run_java(self, code, input_data, temp_dir, unique_id):
+        """Run Java code with bulletproof compilation and execution"""
+        try:
+            # Find Java tools
+            javac = self._find_javac()
+            java = self._find_java()
+            
+            if not javac or not java:
+                logger.error("❌ Java compiler/runtime not found")
+                return None
+            
+            # Extract class name from code
+            class_name = self._extract_java_class_name(code)
+            if not class_name:
+                logger.error("❌ Could not extract Java class name")
+                return None
+            
+            # Create files
+            code_file = temp_dir / f"{class_name}.java"
+            input_file = temp_dir / f"{unique_id}_input.txt"
+            output_file = temp_dir / f"{unique_id}_output.txt"
+            compile_error_file = temp_dir / f"{unique_id}_compile_error.txt"
+            runtime_error_file = temp_dir / f"{unique_id}_runtime_error.txt"
+            
+            # Write files
+            code_file.write_text(code, encoding='utf-8')
+            input_file.write_text(input_data, encoding='utf-8')
+            
+            # Compile
+            with open(compile_error_file, 'w') as stderr_f:
+                compile_process = subprocess.run(
+                    [javac, str(code_file)],
+                    stderr=stderr_f,
+                    cwd=str(temp_dir),
+                    timeout=self.compile_timeout,
+                    text=True
+                )
+            
+            if compile_process.returncode != 0:
+                error_content = compile_error_file.read_text(encoding='utf-8', errors='ignore')
+                logger.error(f"❌ Java compilation failed: {error_content[:200]}")
+                return None
+            
+            # Execute
+            with open(input_file, 'r') as stdin_f:
+                with open(output_file, 'w') as stdout_f:
+                    with open(runtime_error_file, 'w') as stderr_f:
+                        
+                        process = subprocess.Popen(
+                            [java, class_name],
+                            stdin=stdin_f,
+                            stdout=stdout_f,
+                            stderr=stderr_f,
+                            cwd=str(temp_dir),
+                            text=True,
+                            preexec_fn=os.setsid if hasattr(os, 'setsid') else None
+                        )
+                        
+                        try:
+                            return_code = process.wait(timeout=self.timeout_limits['java'])
+                        except subprocess.TimeoutExpired:
+                            try:
+                                os.killpg(os.getpgid(process.pid), signal.SIGTERM)
+                            except:
+                                process.terminate()
+                            
+                            try:
+                                process.wait(timeout=5)
+                            except subprocess.TimeoutExpired:
+                                try:
+                                    os.killpg(os.getpgid(process.pid), signal.SIGKILL)
+                                except:
+                                    process.kill()
+                            
+                            logger.error("⏰ Java execution timed out")
+                            return None
+            
+            if return_code != 0:
+                error_content = ""
+                if runtime_error_file.exists():
+                    error_content = runtime_error_file.read_text(encoding='utf-8', errors='ignore')
+                logger.error(f"❌ Java execution failed (code {return_code}): {error_content[:200]}")
+                return None
+            
+            # Read output
+            if output_file.exists():
+                output = output_file.read_text(encoding='utf-8', errors='ignore')
+                logger.info(f"✅ Java execution successful, output: {len(output)} chars")
+                return output
+            else:
+                return ""
+                
+        except Exception as e:
+            logger.error(f"💥 Java execution error: {str(e)}", exc_info=True)
+            return None
+    
+    def _run_javascript(self, code, input_data, temp_dir, unique_id):
+        """Run JavaScript code with Node.js"""
+        try:
+            # Find Node.js
+            node_cmd = self._find_nodejs()
+            if not node_cmd:
+                logger.error("❌ Node.js not found")
+                return None
+            
+            # Wrap code to handle input
+            wrapped_code = f'''
+const fs = require('fs');
+const path = require('path');
+
+// Read input
+let input = '';
+try {{
+    input = fs.readFileSync('{unique_id}_input.txt', 'utf8');
+}} catch (e) {{
+    // No input file
+}}
+
+// Set up input for the user code
+let inputLines = input.trim().split('\\n');
+let currentLine = 0;
+
+function readline() {{
+    if (currentLine < inputLines.length) {{
+        return inputLines[currentLine++];
+    }}
+    return '';
+}}
+
+// User code starts here
+{code}
+'''
+            
+            # Create files
+            code_file = temp_dir / f"{unique_id}.js"
+            input_file = temp_dir / f"{unique_id}_input.txt"
+            output_file = temp_dir / f"{unique_id}_output.txt"
+            error_file = temp_dir / f"{unique_id}_error.txt"
+            
+            # Write files
+            code_file.write_text(wrapped_code, encoding='utf-8')
+            input_file.write_text(input_data, encoding='utf-8')
+            
+            # Execute
+            with open(output_file, 'w') as stdout_f:
+                with open(error_file, 'w') as stderr_f:
+                    
+                    process = subprocess.Popen(
+                        [node_cmd, str(code_file)],
+                        stdout=stdout_f,
+                        stderr=stderr_f,
+                        cwd=str(temp_dir),
+                        text=True,
+                        preexec_fn=os.setsid if hasattr(os, 'setsid')
