@@ -1,7 +1,6 @@
-# core/models.py - Updated models
+# core/models.py - Clean version without problematic timestamp fields
 from django.db import models
 from django.contrib.auth.models import User
-from django.utils import timezone
 
 class Problem(models.Model):
     DIFFICULTY_CHOICES = [
@@ -14,8 +13,6 @@ class Problem(models.Model):
     short_code = models.CharField(max_length=20, unique=True)
     statement = models.TextField()
     difficulty = models.CharField(max_length=1, choices=DIFFICULTY_CHOICES)
-    created_at = models.DateTimeField(default=timezone.now)
-    updated_at = models.DateTimeField(auto_now=True)
     
     def __str__(self):
         return f"{self.short_code}: {self.name}"
@@ -37,7 +34,6 @@ class TestCase(models.Model):
     output = models.TextField()
     is_hidden = models.BooleanField(default=False)
     order = models.IntegerField(default=1)
-    created_at = models.DateTimeField(default=timezone.now)
     
     def __str__(self):
         visibility = "Hidden" if self.is_hidden else "Visible"
@@ -70,15 +66,14 @@ class Submission(models.Model):
     code_text = models.TextField()
     language = models.CharField(max_length=10, choices=LANGUAGE_CHOICES, default='py')
     verdict = models.CharField(max_length=5, choices=VERDICT_CHOICES, default='PE')
-    submitted = models.DateTimeField(default=timezone.now)
-    execution_time = models.FloatField(null=True, blank=True)  # in seconds
-    memory_used = models.IntegerField(null=True, blank=True)   # in KB
+    submitted = models.DateTimeField(auto_now_add=True)  # This one is fine, it's for submissions
+    execution_time = models.FloatField(null=True, blank=True)
+    memory_used = models.IntegerField(null=True, blank=True)
     
     def __str__(self):
         return f"{self.user.username} - {self.problem.short_code} ({self.get_verdict_display()})"
     
     def get_language_display(self):
-        """Get human-readable language name"""
         language_map = {
             'py': 'Python 3',
             'cpp': 'C++',
@@ -88,7 +83,6 @@ class Submission(models.Model):
         return language_map.get(self.language, self.language.upper())
     
     def get_verdict_display_with_icon(self):
-        """Get verdict with appropriate icon"""
         icons = {
             'AC': '✅',
             'WA': '❌',
@@ -101,7 +95,6 @@ class Submission(models.Model):
         return f"{icons.get(self.verdict, '❓')} {self.get_verdict_display()}"
     
     def get_status_color_class(self):
-        """Get CSS class for status styling"""
         color_map = {
             'AC': 'status-accepted',
             'WA': 'status-rejected',
