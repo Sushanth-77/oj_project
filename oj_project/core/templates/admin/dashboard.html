@@ -614,10 +614,10 @@
             <a href="{% url 'core:admin_submissions_list' %}" class="nav-item">
                 <i>📝</i> Submissions
             </a>
-            <a href="#" class="nav-item">
+            <a href="{% url 'core:admin_users_list' %}" class="nav-item">
                 <i>👥</i> Users
             </a>
-            <a href="#" class="nav-item">
+            <a href="{% url 'core:admin_analytics' %}" class="nav-item">
                 <i>📈</i> Analytics
             </a>
             <a href="#" class="nav-item">
@@ -661,22 +661,22 @@
             <div class="stats-grid">
                 <div class="stat-card">
                     <span class="stat-icon">📚</span>
-                    <span class="stat-number">{{ total_problems|default:42 }}</span>
+                    <span class="stat-number">{{ total_problems|default:0 }}</span>
                     <span class="stat-label">Total Problems</span>
                 </div>
                 <div class="stat-card">
                     <span class="stat-icon">📝</span>
-                    <span class="stat-number">{{ total_submissions|default:1247 }}</span>
+                    <span class="stat-number">{{ total_submissions|default:0 }}</span>
                     <span class="stat-label">Submissions</span>
                 </div>
                 <div class="stat-card">
                     <span class="stat-icon">👥</span>
-                    <span class="stat-number">156</span>
+                    <span class="stat-number">{{ total_users|default:0 }}</span>
                     <span class="stat-label">Active Users</span>
                 </div>
                 <div class="stat-card">
                     <span class="stat-icon">✅</span>
-                    <span class="stat-number">78%</span>
+                    <span class="stat-number">{{ success_rate|default:0 }}%</span>
                     <span class="stat-label">Success Rate</span>
                 </div>
             </div>
@@ -693,12 +693,12 @@
                     <div class="action-title">View Submissions</div>
                     <div class="action-desc">Monitor user submissions</div>
                 </a>
-                <a href="#" class="action-card">
+                <a href="{% url 'core:admin_analytics' %}" class="action-card">
                     <div class="action-icon">📊</div>
                     <div class="action-title">Analytics</div>
                     <div class="action-desc">Platform insights</div>
                 </a>
-                <a href="#" class="action-card">
+                <a href="{% url 'core:admin_users_list' %}" class="action-card">
                     <div class="action-icon">🔧</div>
                     <div class="action-title">Manage Users</div>
                     <div class="action-desc">User administration</div>
@@ -713,32 +713,29 @@
                     </h2>
                 </div>
                 
-                <div class="activity-item">
-                    <div class="activity-icon success">✅</div>
-                    <div class="activity-content">
-                        <div class="activity-title">New problem added</div>
-                        <div class="activity-desc">Problem "Binary Search Tree" was created successfully</div>
+                {% if recent_submissions %}
+                    {% for submission in recent_submissions|slice:":5" %}
+                    <div class="activity-item">
+                        <div class="activity-icon {% if submission.verdict == 'AC' %}success{% else %}danger{% endif %}">
+                            {% if submission.verdict == 'AC' %}✅{% else %}❌{% endif %}
+                        </div>
+                        <div class="activity-content">
+                            <div class="activity-title">{{ submission.user.username }} submitted solution</div>
+                            <div class="activity-desc">Problem "{{ submission.problem.name }}" - {{ submission.get_verdict_display }}</div>
+                        </div>
+                        <div class="activity-time">{{ submission.submitted|timesince }} ago</div>
                     </div>
-                    <div class="activity-time">2 hours ago</div>
-                </div>
-                
-                <div class="activity-item">
-                    <div class="activity-icon info">📝</div>
-                    <div class="activity-content">
-                        <div class="activity-title">High submission activity</div>
-                        <div class="activity-desc">127 submissions received in the last hour</div>
+                    {% endfor %}
+                {% else %}
+                    <div class="activity-item">
+                        <div class="activity-icon info">📝</div>
+                        <div class="activity-content">
+                            <div class="activity-title">No recent submissions</div>
+                            <div class="activity-desc">No submission activity yet</div>
+                        </div>
+                        <div class="activity-time">-</div>
                     </div>
-                    <div class="activity-time">1 hour ago</div>
-                </div>
-                
-                <div class="activity-item">
-                    <div class="activity-icon success">👤</div>
-                    <div class="activity-content">
-                        <div class="activity-title">New user registered</div>
-                        <div class="activity-desc">User "john_doe" joined the platform</div>
-                    </div>
-                    <div class="activity-time">30 minutes ago</div>
-                </div>
+                {% endif %}
             </div>
 
             <!-- Recent Problems Section -->

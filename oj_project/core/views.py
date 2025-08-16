@@ -13,6 +13,125 @@ from django.core.files.base import ContentFile
 from .admin_utils import check_admin_access
 
 # Replace your existing problems_list function with this updated version:
+# Add these imports at the top of your views.py
+from django.contrib.auth.models import User
+from django.db.models import Count, Q
+from datetime import datetime, timedelta
+
+# Helper function for admin check
+def is_admin(user):
+    """Check if user is admin/superuser"""
+    return user.is_superuser or user.is_staff
+
+# Update your admin_dashboard view
+
+# Add these new views for Users and Analytics
+@login_required
+@user_passes_test(is_admin)
+def admin_users_list(request):
+    """Admin page to view and manage all users"""
+    search_query = request.GET.get('search', '').strip()
+    
+    users = User.objects.all()
+    
+    if search_query:
+        users = users.filter(
+            Q(username__icontains=search_query) |
+            Q(email__icontains=search_query) |
+            Q(first_name__icontains=search_query) |
+            Q(last_name__icontains=search_query)
+        )
+    
+    users = users.order_by('-date_joined')
+    
+    # Calculate user statistics
+    total_users = User.objects.count()
+    active_users = User.objects.filter(last_login__gte=datetime.now() - timedelta(days=30)).count()
+    admin_users = User.objects.filter(Q(is_staff=True) | Q(is_superuser=True)).count()
+    
+    # Get users with submission counts
+    users_with_stats = users.annotate(
+        submission_count=Count('submission'),
+        accepted_count=Count('submission', filter=Q(submission__verdict='AC'))
+    )
+    
+    context = {
+        'users': users_with_stats[:50],  # Limit to 50 for performance
+        'search_query': search_query,
+        'total_users': total_users,
+        'active_users': active_users,
+        'admin_users': admin_users,
+    }
+    
+    return render(request, 'admin/users_list.html', context)
+
+@login_required
+@user_passes_test(is_admin)
+def admin_analytics(request):
+    """Admin page showing platform analytics"""
+    # Time-based analytics
+    now = datetime.now()
+    last_week = now - timedelta(days=7)
+    last_month = now - timedelta(days=30)
+    
+    # Submission analytics
+    total_submissions = Submission.objects.count()
+    weekly_submissions = Submission.objects.filter(submitted__gte=last_week).count()
+    monthly_submissions = Submission.objects.filter(submitted__gte=last_month).count()
+    
+    # Problem analytics
+    total_problems = Problem.objects.count()
+    easy_problems = Problem.objects.filter(difficulty='E').count()
+    medium_problems = Problem.objects.filter(difficulty='M').count()
+    hard_problems = Problem.objects.filter(difficulty='H').count()
+    
+    # User analytics
+    total_users = User.objects.count()
+    active_users = User.objects.filter(last_login__gte=last_week).count()
+    new_users_this_month = User.objects.filter(date_joined__gte=last_month).count()
+    
+    # Verdict distribution
+    verdict_stats = Submission.objects.values('verdict').annotate(count=Count('verdict'))
+    
+    # Popular problems (most submitted)
+    popular_problems = Problem.objects.annotate(
+        submission_count=Count('submission')
+    ).order_by('-submission_count')[:10]
+    
+    # Daily submission trend (last 7 days)
+    daily_submissions = []
+    for i in range(7):
+        day = now - timedelta(days=i)
+        day_start = day.replace(hour=0, minute=0, second=0, microsecond=0)
+        day_end = day_start + timedelta(days=1)
+        
+        count = Submission.objects.filter(
+            submitted__gte=day_start,
+            submitted__lt=day_end
+        ).count()
+        
+        daily_submissions.append({
+            'date': day.strftime('%Y-%m-%d'),
+            'count': count
+        })
+    
+    context = {
+        'total_submissions': total_submissions,
+        'weekly_submissions': weekly_submissions,
+        'monthly_submissions': monthly_submissions,
+        'total_problems': total_problems,
+        'easy_problems': easy_problems,
+        'medium_problems': medium_problems,
+        'hard_problems': hard_problems,
+        'total_users': total_users,
+        'active_users': active_users,
+        'new_users_this_month': new_users_this_month,
+        'verdict_stats': verdict_stats,
+        'popular_problems': popular_problems,
+        'daily_submissions': daily_submissions,
+    }
+    
+    return render(request, 'admin/analytics.html', context)
 def problems_list(request):
     """Display list of all problems with user progress and search functionality"""
     # Check if admin user should be redirected to admin dashboard
@@ -282,26 +401,36 @@ def is_admin(user):
     """Check if user is admin/superuser"""
     return user.is_superuser or user.is_staff
 
+
 @login_required
 @user_passes_test(is_admin)
 def admin_dashboard(request):
-    """Admin dashboard showing problems overview"""
-    problems = Problem.objects.all().order_by('-id')[:10]  # Latest 10 problems
+    """Admin dashboard showing real platform statistics"""
+    # Get recent problems (latest 10)
+    problems = Problem.objects.all().order_by('-id')[:10]
+    
+    # Calculate real statistics
     total_problems = Problem.objects.count()
     total_submissions = Submission.objects.count()
+    total_users = User.objects.count()
     
-    # Count by difficulty
-    easy_count = Problem.objects.filter(difficulty='E').count()
-    medium_count = Problem.objects.filter(difficulty='M').count()
-    hard_count = Problem.objects.filter(difficulty='H').count()
+    # Calculate success rate
+    if total_submissions > 0:
+        accepted_submissions = Submission.objects.filter(verdict='AC').count()
+        success_rate = round((accepted_submissions / total_submissions) * 100)
+    else:
+        success_rate = 0
+    
+    # Get recent submissions for activity feed (latest 10)
+    recent_submissions = Submission.objects.select_related('user', 'problem').order_by('-submitted')[:10]
     
     context = {
         'problems': problems,
         'total_problems': total_problems,
         'total_submissions': total_submissions,
-        'easy_count': easy_count,
-        'medium_count': medium_count,
-        'hard_count': hard_count,
+        'total_users': total_users,
+        'success_rate': success_rate,
+        'recent_submissions': recent_submissions,
     }
     
     return render(request, 'admin/dashboard.html', context)
