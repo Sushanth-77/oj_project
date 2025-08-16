@@ -1,4 +1,4 @@
-# core/models.py - Clean version without problematic timestamp fields
+# core/models.py - Simplified version without execution_time and memory_used
 from django.db import models
 from django.contrib.auth.models import User
 
@@ -66,9 +66,8 @@ class Submission(models.Model):
     code_text = models.TextField()
     language = models.CharField(max_length=10, choices=LANGUAGE_CHOICES, default='py')
     verdict = models.CharField(max_length=5, choices=VERDICT_CHOICES, default='PE')
-    submitted = models.DateTimeField(auto_now_add=True)  # This one is fine, it's for submissions
-    execution_time = models.FloatField(null=True, blank=True)
-    memory_used = models.IntegerField(null=True, blank=True)
+    submitted = models.DateTimeField(auto_now_add=True)
+    # Note: execution_time and memory_used fields removed temporarily
     
     def __str__(self):
         return f"{self.user.username} - {self.problem.short_code} ({self.get_verdict_display()})"
