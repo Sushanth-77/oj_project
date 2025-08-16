@@ -305,14 +305,29 @@
             color: white;
         }
 
+        .btn-info:hover {
+            background: #138496;
+            transform: translateY(-1px);
+        }
+
         .btn-warning {
             background: #ffc107;
             color: #212529;
         }
 
+        .btn-warning:hover {
+            background: #e0a800;
+            transform: translateY(-1px);
+        }
+
         .btn-danger {
             background: #dc3545;
             color: white;
+        }
+
+        .btn-danger:hover {
+            background: #c82333;
+            transform: translateY(-1px);
         }
 
         .empty-state {
@@ -353,29 +368,6 @@
             background: #f44336;
             border-radius: 50%;
             border: 2px solid #1a1f29;
-        }
-
-        @media (max-width: 768px) {
-            .sidebar {
-                transform: translateX(-100%);
-                transition: transform 0.3s ease;
-            }
-            
-            .main-content {
-                margin-left: 0;
-            }
-            
-            .header {
-                padding: 15px 20px;
-            }
-            
-            .dashboard-content {
-                padding: 20px;
-            }
-            
-            .stats-grid {
-                grid-template-columns: 1fr;
-            }
         }
 
         .quick-actions {
@@ -419,22 +411,207 @@
             color: #a0aec0;
             font-size: 14px;
         }
+
+        @media (max-width: 768px) {
+            .sidebar {
+                transform: translateX(-100%);
+                transition: transform 0.3s ease;
+            }
+            
+            .sidebar.mobile-open {
+                transform: translateX(0);
+            }
+            
+            .main-content {
+                margin-left: 0;
+            }
+            
+            .header {
+                padding: 15px 20px;
+            }
+            
+            .dashboard-content {
+                padding: 20px;
+            }
+            
+            .stats-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .header-actions {
+                flex-wrap: wrap;
+                gap: 10px;
+            }
+
+            .mobile-menu-btn {
+                display: block;
+                background: none;
+                border: none;
+                color: #ffffff;
+                font-size: 24px;
+                cursor: pointer;
+            }
+        }
+
+        .mobile-menu-btn {
+            display: none;
+        }
+
+        .alert {
+            padding: 15px 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            border-left: 4px solid;
+        }
+
+        .alert-success {
+            background: rgba(76, 175, 80, 0.1);
+            border-color: #4caf50;
+            color: #4caf50;
+        }
+
+        .alert-info {
+            background: rgba(33, 150, 243, 0.1);
+            border-color: #2196f3;
+            color: #2196f3;
+        }
+
+        .alert-warning {
+            background: rgba(255, 193, 7, 0.1);
+            border-color: #ffc107;
+            color: #ffc107;
+        }
+
+        .recent-activity {
+            background: #1a1f29;
+            border: 1px solid #2d3748;
+            border-radius: 15px;
+            padding: 30px;
+            margin-bottom: 30px;
+        }
+
+        .activity-item {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            padding: 15px 0;
+            border-bottom: 1px solid #2d3748;
+        }
+
+        .activity-item:last-child {
+            border-bottom: none;
+        }
+
+        .activity-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+        }
+
+        .activity-icon.success {
+            background: rgba(76, 175, 80, 0.2);
+            color: #4caf50;
+        }
+
+        .activity-icon.danger {
+            background: rgba(244, 67, 54, 0.2);
+            color: #f44336;
+        }
+
+        .activity-icon.info {
+            background: rgba(33, 150, 243, 0.2);
+            color: #2196f3;
+        }
+
+        .activity-content {
+            flex: 1;
+        }
+
+        .activity-title {
+            color: #ffffff;
+            font-weight: 600;
+            margin-bottom: 5px;
+        }
+
+        .activity-desc {
+            color: #a0aec0;
+            font-size: 14px;
+        }
+
+        .activity-time {
+            color: #a0aec0;
+            font-size: 12px;
+            white-space: nowrap;
+        }
+
+        .system-status {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-top: 30px;
+        }
+
+        .status-item {
+            background: #2d3748;
+            border: 1px solid #4a5568;
+            border-radius: 12px;
+            padding: 20px;
+            text-align: center;
+        }
+
+        .status-indicator {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-bottom: 10px;
+        }
+
+        .status-online {
+            background: #4caf50;
+            box-shadow: 0 0 10px rgba(76, 175, 80, 0.5);
+        }
+
+        .status-warning {
+            background: #ffc107;
+            box-shadow: 0 0 10px rgba(255, 193, 7, 0.5);
+        }
+
+        .status-offline {
+            background: #f44336;
+            box-shadow: 0 0 10px rgba(244, 67, 54, 0.5);
+        }
+
+        .status-label {
+            color: #ffffff;
+            font-weight: 600;
+            margin-bottom: 5px;
+        }
+
+        .status-desc {
+            color: #a0aec0;
+            font-size: 12px;
+        }
     </style>
 </head>
 <body>
     <!-- Sidebar -->
-    <nav class="sidebar">
+    <nav class="sidebar" id="sidebar">
         <div class="logo">
             <h2><span>💻</span> CodeMaster</h2>
         </div>
         <div class="nav-menu">
-            <a href="#" class="nav-item active">
+            <a href="{% url 'core:admin_dashboard' %}" class="nav-item active">
                 <i>📊</i> Dashboard
             </a>
-            <a href="#" class="nav-item">
+            <a href="{% url 'core:admin_problems_list' %}" class="nav-item">
                 <i>📚</i> Problems
             </a>
-            <a href="#" class="nav-item">
+            <a href="{% url 'core:admin_submissions_list' %}" class="nav-item">
                 <i>📝</i> Submissions
             </a>
             <a href="#" class="nav-item">
@@ -453,12 +630,15 @@
     <main class="main-content">
         <!-- Header -->
         <header class="header">
-            <h1 class="header-title">Dashboard Overview</h1>
+            <div style="display: flex; align-items: center; gap: 15px;">
+                <button class="mobile-menu-btn" onclick="toggleSidebar()">☰</button>
+                <h1 class="header-title">Dashboard Overview</h1>
+            </div>
             <div class="header-actions">
-                <a href="#" class="btn btn-secondary">
+                <a href="{% url 'core:problems_list' %}?from_admin=1" class="btn btn-secondary">
                     <span>🏠</span> Main Site
                 </a>
-                <a href="#" class="btn btn-primary">
+                <a href="{% url 'core:admin_add_problem' %}" class="btn btn-primary">
                     <span>➕</span> Add Problem
                 </a>
                 <div class="user-menu">
@@ -472,16 +652,21 @@
 
         <!-- Dashboard Content -->
         <div class="dashboard-content">
+            <!-- Welcome Message -->
+            <div class="alert alert-info">
+                <strong>Welcome back, Admin!</strong> Here's an overview of your CodeMaster platform.
+            </div>
+
             <!-- Stats Grid -->
             <div class="stats-grid">
                 <div class="stat-card">
                     <span class="stat-icon">📚</span>
-                    <span class="stat-number">42</span>
+                    <span class="stat-number">{{ total_problems|default:42 }}</span>
                     <span class="stat-label">Total Problems</span>
                 </div>
                 <div class="stat-card">
                     <span class="stat-icon">📝</span>
-                    <span class="stat-number">1,247</span>
+                    <span class="stat-number">{{ total_submissions|default:1247 }}</span>
                     <span class="stat-label">Submissions</span>
                 </div>
                 <div class="stat-card">
@@ -498,7 +683,7 @@
 
             <!-- Quick Actions -->
             <div class="quick-actions">
-                <a href="#" class="action-card">
+                <a href="{% url 'core:admin_add_problem' %}" class="action-card">
                     <div class="action-icon">➕</div>
                     <div class="action-title">Add Problem</div>
                     <div class="action-desc">Create new coding challenges</div>
@@ -520,15 +705,52 @@
                 </a>
             </div>
 
+            <!-- Recent Activity -->
+            <div class="recent-activity">
+                <div class="section-header">
+                    <h2 class="section-title">
+                        <span>⚡</span> Recent Activity
+                    </h2>
+                </div>
+                
+                <div class="activity-item">
+                    <div class="activity-icon success">✅</div>
+                    <div class="activity-content">
+                        <div class="activity-title">New problem added</div>
+                        <div class="activity-desc">Problem "Binary Search Tree" was created successfully</div>
+                    </div>
+                    <div class="activity-time">2 hours ago</div>
+                </div>
+                
+                <div class="activity-item">
+                    <div class="activity-icon info">📝</div>
+                    <div class="activity-content">
+                        <div class="activity-title">High submission activity</div>
+                        <div class="activity-desc">127 submissions received in the last hour</div>
+                    </div>
+                    <div class="activity-time">1 hour ago</div>
+                </div>
+                
+                <div class="activity-item">
+                    <div class="activity-icon success">👤</div>
+                    <div class="activity-content">
+                        <div class="activity-title">New user registered</div>
+                        <div class="activity-desc">User "john_doe" joined the platform</div>
+                    </div>
+                    <div class="activity-time">30 minutes ago</div>
+                </div>
+            </div>
+
             <!-- Recent Problems Section -->
             <div class="content-section">
                 <div class="section-header">
                     <h2 class="section-title">
                         <span>📋</span> Recent Problems
                     </h2>
-                    <a href="#" class="btn btn-secondary btn-sm">View All</a>
+                    <a href="{% url 'core:admin_problems_list' %}" class="btn btn-secondary btn-sm">View All</a>
                 </div>
 
+                {% if problems %}
                 <table class="problems-table">
                     <thead>
                         <tr>
@@ -540,74 +762,104 @@
                         </tr>
                     </thead>
                     <tbody>
+                        {% for problem in problems %}
                         <tr>
                             <td>
                                 <div class="problem-info">
-                                    <h4>Two Sum Problem</h4>
-                                    <div class="problem-code">A001</div>
+                                    <h4>{{ problem.name }}</h4>
+                                    <div class="problem-code">{{ problem.short_code }}</div>
                                 </div>
                             </td>
                             <td>
-                                <span class="difficulty-badge difficulty-easy">Easy</span>
+                                <span class="difficulty-badge difficulty-{% if problem.difficulty == 'E' %}easy{% elif problem.difficulty == 'M' %}medium{% else %}hard{% endif %}">
+                                    {% if problem.difficulty == 'E' %}Easy
+                                    {% elif problem.difficulty == 'M' %}Medium
+                                    {% else %}Hard{% endif %}
+                                </span>
                             </td>
-                            <td>5 test cases</td>
-                            <td>234 submissions</td>
+                            <td>{{ problem.testcases.count }} test cases</td>
+                            <td>{{ problem.submission_set.count }} submissions</td>
                             <td>
                                 <div class="actions">
-                                    <button class="btn btn-info btn-sm">👁️ View</button>
-                                    <button class="btn btn-warning btn-sm">✏️ Edit</button>
-                                    <button class="btn btn-danger btn-sm">🗑️ Delete</button>
+                                    <a href="{% url 'core:problem_detail' problem.short_code %}" class="btn btn-info btn-sm">👁️ View</a>
+                                    <a href="{% url 'core:admin_edit_problem' problem.short_code %}" class="btn btn-warning btn-sm">✏️ Edit</a>
+                                    <a href="{% url 'core:admin_delete_problem' problem.short_code %}" class="btn btn-danger btn-sm">🗑️ Delete</a>
                                 </div>
                             </td>
                         </tr>
-                        <tr>
-                            <td>
-                                <div class="problem-info">
-                                    <h4>Binary Tree Traversal</h4>
-                                    <div class="problem-code">B002</div>
-                                </div>
-                            </td>
-                            <td>
-                                <span class="difficulty-badge difficulty-medium">Medium</span>
-                            </td>
-                            <td>8 test cases</td>
-                            <td>156 submissions</td>
-                            <td>
-                                <div class="actions">
-                                    <button class="btn btn-info btn-sm">👁️ View</button>
-                                    <button class="btn btn-warning btn-sm">✏️ Edit</button>
-                                    <button class="btn btn-danger btn-sm">🗑️ Delete</button>
-                                </div>
-                            </td>
-                        </tr>
-                        <tr>
-                            <td>
-                                <div class="problem-info">
-                                    <h4>Dynamic Programming Challenge</h4>
-                                    <div class="problem-code">C003</div>
-                                </div>
-                            </td>
-                            <td>
-                                <span class="difficulty-badge difficulty-hard">Hard</span>
-                            </td>
-                            <td>12 test cases</td>
-                            <td>89 submissions</td>
-                            <td>
-                                <div class="actions">
-                                    <button class="btn btn-info btn-sm">👁️ View</button>
-                                    <button class="btn btn-warning btn-sm">✏️ Edit</button>
-                                    <button class="btn btn-danger btn-sm">🗑️ Delete</button>
-                                </div>
-                            </td>
-                        </tr>
+                        {% endfor %}
                     </tbody>
                 </table>
+                {% else %}
+                <div class="empty-state">
+                    <div class="empty-state-icon">📚</div>
+                    <h2>No Problems Yet</h2>
+                    <p>Start by adding your first coding problem to the platform.</p>
+                    <a href="{% url 'core:admin_add_problem' %}" class="btn btn-primary" style="margin-top: 20px;">
+                        <span>➕</span> Add Your First Problem
+                    </a>
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- System Status -->
+            <div class="content-section">
+                <div class="section-header">
+                    <h2 class="section-title">
+                        <span>🔧</span> System Status
+                    </h2>
+                </div>
+                
+                <div class="system-status">
+                    <div class="status-item">
+                        <div class="status-indicator status-online"></div>
+                        <div class="status-label">Web Server</div>
+                        <div class="status-desc">Running smoothly</div>
+                    </div>
+                    
+                    <div class="status-item">
+                        <div class="status-indicator status-online"></div>
+                        <div class="status-label">Database</div>
+                        <div class="status-desc">Connected</div>
+                    </div>
+                    
+                    <div class="status-item">
+                        <div class="status-indicator status-warning"></div>
+                        <div class="status-label">Judge System</div>
+                        <div class="status-desc">High load</div>
+                    </div>
+                    
+                    <div class="status-item">
+                        <div class="status-indicator status-online"></div>
+                        <div class="status-label">File Storage</div>
+                        <div class="status-desc">Available</div>
+                    </div>
+                </div>
             </div>
         </div>
     </main>
 
     <script>
-        // Add some interactivity
+        // Mobile menu toggle
+        function toggleSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            sidebar.classList.toggle('mobile-open');
+        }
+
+        // Close sidebar when clicking outside on mobile
+        document.addEventListener('click', function(e) {
+            const sidebar = document.getElementById('sidebar');
+            const menuBtn = document.querySelector('.mobile-menu-btn');
+            
+            if (window.innerWidth <= 768 && 
+                !sidebar.contains(e.target) && 
+                !menuBtn.contains(e.target) &&
+                sidebar.classList.contains('mobile-open')) {
+                sidebar.classList.remove('mobile-open');
+            }
+        });
+
+        // Add interactivity
         document.addEventListener('DOMContentLoaded', function() {
             // Animate stat cards on load
             const statCards = document.querySelectorAll('.stat-card');
@@ -634,29 +886,98 @@
                 });
             });
 
+            // Animate recent activity items
+            const activityItems = document.querySelectorAll('.activity-item');
+            activityItems.forEach((item, index) => {
+                item.style.opacity = '0';
+                item.style.transform = 'translateX(-20px)';
+                
+                setTimeout(() => {
+                    item.style.transition = 'all 0.5s ease';
+                    item.style.opacity = '1';
+                    item.style.transform = 'translateX(0)';
+                }, (index * 150) + 800);
+            });
+
             // Simulate real-time updates
             setInterval(() => {
                 const numbers = document.querySelectorAll('.stat-number');
                 numbers.forEach(num => {
-                    if (Math.random() > 0.9) { // 10% chance
-                        const current = parseInt(num.textContent) || 0;
-                        num.textContent = current + 1;
+                    if (Math.random() > 0.95) { // 5% chance
+                        const current = parseInt(num.textContent.replace(/[^0-9]/g, '')) || 0;
+                        const isPercentage = num.textContent.includes('%');
+                        const newValue = isPercentage ? Math.min(current + 1, 100) : current + 1;
+                        
                         num.style.transform = 'scale(1.1)';
+                        num.style.color = '#00f5d4';
+                        
                         setTimeout(() => {
+                            num.textContent = isPercentage ? `${newValue}%` : newValue;
                             num.style.transform = 'scale(1)';
+                            num.style.color = '#00d4aa';
                         }, 200);
                     }
                 });
-            }, 5000);
+            }, 3000);
+
+            // Add notification pulse
+            const notificationDot = document.querySelector('.notification-dot');
+            if (notificationDot) {
+                setInterval(() => {
+                    notificationDot.style.animation = 'pulse 0.5s ease-in-out';
+                    setTimeout(() => {
+                        notificationDot.style.animation = '';
+                    }, 500);
+                }, 10000);
+            }
         });
 
-        // Mobile menu toggle (for future implementation)
-        function toggleSidebar() {
-            const sidebar = document.querySelector('.sidebar');
-            sidebar.style.transform = sidebar.style.transform === 'translateX(0px)' 
-                ? 'translateX(-100%)' 
-                : 'translateX(0px)';
+        // Keyboard shortcuts
+        document.addEventListener('keydown', function(e) {
+            // Alt + D for Dashboard
+            if (e.altKey && e.key === 'd') {
+                e.preventDefault();
+                window.location.href = "{% url 'core:admin_dashboard' %}";
+            }
+            
+            // Alt + P for Problems
+            if (e.altKey && e.key === 'p') {
+                e.preventDefault();
+                window.location.href = "{% url 'core:admin_problems_list' %}";
+            }
+            
+            // Alt + S for Submissions
+            if (e.altKey && e.key === 's') {
+                e.preventDefault();
+                window.location.href = "{% url 'core:admin_submissions_list' %}";
+            }
+            
+            // Alt + N for New Problem
+            if (e.altKey && e.key === 'n') {
+                e.preventDefault();
+                window.location.href = "{% url 'core:admin_add_problem' %}";
+            }
+        });
+
+        // Show keyboard shortcuts help
+        function showKeyboardShortcuts() {
+            alert(`Keyboard Shortcuts:
+            
+Alt + D: Dashboard
+Alt + P: Problems
+Alt + S: Submissions  
+Alt + N: New Problem
+
+These shortcuts work from any admin page.`);
         }
+
+        // Add help button listener
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'F1') {
+                e.preventDefault();
+                showKeyboardShortcuts();
+            }
+        });
     </script>
 </body>
 </html>

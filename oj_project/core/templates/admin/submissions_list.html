@@ -110,6 +110,12 @@
             text-align: center;
             position: relative;
             overflow: hidden;
+            transition: all 0.3s ease;
+        }
+
+        .stat-item:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.3);
         }
 
         .stat-item::before {
@@ -176,6 +182,7 @@
             border-radius: 8px;
             color: #ffffff;
             font-size: 14px;
+            transition: all 0.3s ease;
         }
 
         .search-box {
@@ -350,10 +357,21 @@
             color: white;
         }
 
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(0, 212, 170, 0.3);
+        }
+
         .btn-secondary {
             background: #2d3748;
             color: #a0aec0;
             border: 1px solid #4a5568;
+        }
+
+        .btn-secondary:hover {
+            background: #4a5568;
+            color: white;
+            transform: translateY(-2px);
         }
 
         .btn-sm {
@@ -367,9 +385,19 @@
             color: white;
         }
 
+        .btn-info:hover {
+            background: #138496;
+            transform: translateY(-1px);
+        }
+
         .btn-danger {
             background: #dc3545;
             color: white;
+        }
+
+        .btn-danger:hover {
+            background: #c82333;
+            transform: translateY(-1px);
         }
 
         .empty-state {
@@ -382,6 +410,86 @@
             font-size: 80px;
             margin-bottom: 20px;
             opacity: 0.3;
+        }
+
+        .empty-state h2 {
+            margin-bottom: 10px;
+            color: #ffffff;
+        }
+
+        .filter-form {
+            display: contents;
+        }
+
+        @media (max-width: 768px) {
+            .sidebar {
+                transform: translateX(-100%);
+                transition: transform 0.3s ease;
+            }
+            
+            .main-content {
+                margin-left: 0;
+            }
+            
+            .header {
+                padding: 15px 20px;
+            }
+            
+            .content {
+                padding: 20px;
+            }
+            
+            .stats-bar {
+                grid-template-columns: 1fr;
+            }
+
+            .toolbar {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            .filters {
+                justify-content: stretch;
+                flex-direction: column;
+            }
+
+            .search-box {
+                width: 100%;
+            }
+
+            table {
+                font-size: 12px;
+            }
+
+            th, td {
+                padding: 10px 8px;
+            }
+        }
+
+        .loading {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.8);
+            padding: 20px;
+            border-radius: 10px;
+            z-index: 9999;
+        }
+
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid #2d3748;
+            border-top: 4px solid #00d4aa;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
         }
     </style>
 </head>
@@ -449,38 +557,41 @@
                 <div class="filters">
                     <div class="filter-group">
                         <span class="filter-label">Search</span>
-                        <form method="get" style="display: inline;">
+                        <form method="get" class="filter-form" id="searchForm">
                             <input type="text" name="search" class="search-box" 
                                    placeholder="Search by user, problem, or submission ID..."
-                                   value="{{ search_query }}">
+                                   value="{{ search_query }}"
+                                   onchange="submitFilters()">
+                            {% if status_filter %}
+                                <input type="hidden" name="status" value="{{ status_filter }}">
+                            {% endif %}
+                            {% if language_filter %}
+                                <input type="hidden" name="language" value="{{ language_filter }}">
+                            {% endif %}
                         </form>
                     </div>
                     
                     <div class="filter-group">
                         <span class="filter-label">Status</span>
-                        <form method="get" style="display: inline;">
-                            <select name="status" class="filter-select" onchange="this.form.submit()">
-                                <option value="">All Statuses</option>
-                                <option value="AC" {% if status_filter == 'AC' %}selected{% endif %}>Accepted</option>
-                                <option value="WA" {% if status_filter == 'WA' %}selected{% endif %}>Wrong Answer</option>
-                                <option value="TLE" {% if status_filter == 'TLE' %}selected{% endif %}>Time Limit Exceeded</option>
-                                <option value="RE" {% if status_filter == 'RE' %}selected{% endif %}>Runtime Error</option>
-                                <option value="CE" {% if status_filter == 'CE' %}selected{% endif %}>Compilation Error</option>
-                            </select>
-                        </form>
+                        <select name="status" class="filter-select" onchange="updateStatusFilter(this.value)">
+                            <option value="">All Statuses</option>
+                            <option value="AC" {% if status_filter == 'AC' %}selected{% endif %}>Accepted</option>
+                            <option value="WA" {% if status_filter == 'WA' %}selected{% endif %}>Wrong Answer</option>
+                            <option value="TLE" {% if status_filter == 'TLE' %}selected{% endif %}>Time Limit Exceeded</option>
+                            <option value="RE" {% if status_filter == 'RE' %}selected{% endif %}>Runtime Error</option>
+                            <option value="CE" {% if status_filter == 'CE' %}selected{% endif %}>Compilation Error</option>
+                        </select>
                     </div>
                     
                     <div class="filter-group">
                         <span class="filter-label">Language</span>
-                        <form method="get" style="display: inline;">
-                            <select name="language" class="filter-select" onchange="this.form.submit()">
-                                <option value="">All Languages</option>
-                                <option value="py" {% if language_filter == 'py' %}selected{% endif %}>Python</option>
-                                <option value="cpp" {% if language_filter == 'cpp' %}selected{% endif %}>C++</option>
-                                <option value="java" {% if language_filter == 'java' %}selected{% endif %}>Java</option>
-                                <option value="c" {% if language_filter == 'c' %}selected{% endif %}>C</option>
-                            </select>
-                        </form>
+                        <select name="language" class="filter-select" onchange="updateLanguageFilter(this.value)">
+                            <option value="">All Languages</option>
+                            <option value="py" {% if language_filter == 'py' %}selected{% endif %}>Python</option>
+                            <option value="cpp" {% if language_filter == 'cpp' %}selected{% endif %}>C++</option>
+                            <option value="java" {% if language_filter == 'java' %}selected{% endif %}>Java</option>
+                            <option value="c" {% if language_filter == 'c' %}selected{% endif %}>C</option>
+                        </select>
                     </div>
                 </div>
                 
@@ -488,7 +599,7 @@
                     <button class="btn btn-secondary" onclick="window.location.reload()">
                         <span>🔄</span> Refresh
                     </button>
-                    <button class="btn btn-primary">
+                    <button class="btn btn-primary" onclick="exportData()">
                         <span>📊</span> Export Data
                     </button>
                 </div>
@@ -549,8 +660,8 @@
                             </td>
                             <td>
                                 <div style="display: flex; gap: 8px;">
-                                    <button class="btn btn-info btn-sm" onclick="viewSubmission({{ submission.id }})">👁️ View</button>
-                                    <button class="btn btn-danger btn-sm">🗑️ Delete</button>
+                                    <button class="btn btn-info btn-sm" onclick="viewSubmission('{{ submission.id }}')">👁️ View</button>
+                                    <button class="btn btn-danger btn-sm" onclick="deleteSubmission('{{ submission.id }}')">🗑️ Delete</button>
                                 </div>
                             </td>
                         </tr>
@@ -568,18 +679,128 @@
         </div>
     </main>
 
+    <!-- Loading Indicator -->
+    <div class="loading" id="loadingIndicator">
+        <div class="spinner"></div>
+    </div>
+
     <script>
         function viewSubmission(submissionId) {
             // This would open a modal or redirect to submission detail
-            alert('View submission #' + submissionId);
+            alert('View submission #' + submissionId + '\n\nThis would open a detailed view of the submission including code, test results, and execution details.');
+        }
+
+        function deleteSubmission(submissionId) {
+            if (confirm('Are you sure you want to delete this submission? This action cannot be undone.')) {
+                // Here you would typically send a DELETE request
+                alert('Delete submission #' + submissionId + '\n\nThis would permanently delete the submission from the database.');
+            }
+        }
+
+        function exportData() {
+            alert('Export functionality would generate a CSV/Excel file with all submission data based on current filters.');
+        }
+
+        function submitFilters() {
+            showLoading();
+            document.getElementById('searchForm').submit();
+        }
+
+        function updateStatusFilter(status) {
+            const url = new URL(window.location);
+            if (status) {
+                url.searchParams.set('status', status);
+            } else {
+                url.searchParams.delete('status');
+            }
+            showLoading();
+            window.location.href = url.toString();
+        }
+
+        function updateLanguageFilter(language) {
+            const url = new URL(window.location);
+            if (language) {
+                url.searchParams.set('language', language);
+            } else {
+                url.searchParams.delete('language');
+            }
+            showLoading();
+            window.location.href = url.toString();
+        }
+
+        function showLoading() {
+            document.getElementById('loadingIndicator').style.display = 'block';
+        }
+
+        function hideLoading() {
+            document.getElementById('loadingIndicator').style.display = 'none';
         }
 
         // Auto-refresh every 30 seconds
-        setInterval(() => {
-            if (Math.random() > 0.5) { // 50% chance to refresh
-                window.location.reload();
+        let autoRefreshInterval;
+        
+        function startAutoRefresh() {
+            autoRefreshInterval = setInterval(() => {
+                if (Math.random() > 0.7) { // 30% chance to refresh
+                    showLoading();
+                    window.location.reload();
+                }
+            }, 30000);
+        }
+
+        function stopAutoRefresh() {
+            if (autoRefreshInterval) {
+                clearInterval(autoRefreshInterval);
             }
-        }, 30000);
+        }
+
+        // Start auto-refresh when page loads
+        document.addEventListener('DOMContentLoaded', function() {
+            hideLoading();
+            startAutoRefresh();
+
+            // Add animations to stat cards
+            const statItems = document.querySelectorAll('.stat-item');
+            statItems.forEach((item, index) => {
+                item.style.opacity = '0';
+                item.style.transform = 'translateY(20px)';
+                
+                setTimeout(() => {
+                    item.style.transition = 'all 0.6s ease';
+                    item.style.opacity = '1';
+                    item.style.transform = 'translateY(0)';
+                }, index * 100);
+            });
+
+            // Add hover effects to table rows
+            const tableRows = document.querySelectorAll('tbody tr');
+            tableRows.forEach(row => {
+                row.addEventListener('mouseenter', function() {
+                    this.style.transform = 'translateX(5px)';
+                });
+                
+                row.addEventListener('mouseleave', function() {
+                    this.style.transform = 'translateX(0)';
+                });
+            });
+        });
+
+        // Stop auto-refresh when user is about to leave
+        window.addEventListener('beforeunload', stopAutoRefresh);
+
+        // Keyboard shortcuts
+        document.addEventListener('keydown', function(e) {
+            // Ctrl + R or F5 for refresh
+            if ((e.ctrlKey && e.key === 'r') || e.key === 'F5') {
+                showLoading();
+            }
+            
+            // Ctrl + F for search focus
+            if (e.ctrlKey && e.key === 'f') {
+                e.preventDefault();
+                document.querySelector('.search-box').focus();
+            }
+        });
     </script>
 </body>
 </html>

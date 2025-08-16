@@ -359,6 +359,39 @@
                 font-size: 60px;
             }
         }
+
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            10%, 30%, 50%, 70%, 90% { transform: translateX(-5px); }
+            20%, 40%, 60%, 80% { transform: translateX(5px); }
+        }
+        
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        .container {
+            animation: fadeInUp 0.6s ease-out;
+        }
+        
+        .danger-warning {
+            animation: fadeInUp 0.8s ease-out 0.2s both;
+        }
+        
+        .consequences-list {
+            animation: fadeInUp 0.8s ease-out 0.4s both;
+        }
+        
+        .actions {
+            animation: fadeInUp 0.8s ease-out 0.6s both;
+        }
     </style>
 </head>
 <body>
@@ -419,7 +452,29 @@
                     <a href="{% url 'core:admin_problems_list' %}" class="btn btn-secondary">
                         <span>⬅️</span> Cancel & Go Back
                     </a>
-                    <button type="button" class="btn btn-danger" id="finalDeleteBtn" style="margin-left: 15px;">
+                    <button type="button" class="btn btn-danger" id="confirmDeleteBtn">
+                        <span>🗑️</span> Delete Problem Forever
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Confirmation Modal -->
+    <div class="confirmation-modal" id="confirmationModal">
+        <div class="modal-content">
+            <h2 class="modal-title">⚠️ Final Confirmation</h2>
+            <p style="color: #a0aec0; margin-bottom: 20px;">
+                To confirm deletion, please type the exact problem name:
+            </p>
+            <p style="color: #00d4aa; font-weight: 600; margin-bottom: 15px;">
+                "{{ problem.name }}"
+            </p>
+            <input type="text" id="confirmationInput" class="confirmation-input" 
+                   placeholder="Type the problem name here...">
+            <div style="margin-top: 30px;">
+                <button type="button" class="btn btn-secondary" onclick="closeModal()">Cancel</button>
+                <button type="button" class="btn btn-danger" id="finalDeleteBtn" style="margin-left: 15px;">
                     <span>💥</span> DELETE FOREVER
                 </button>
             </div>
@@ -427,7 +482,7 @@
     </div>
 
     <script>
-        const problemName = "{{ problem.name }}";
+        const problemName = "{{ problem.name|escapejs }}";
         
         document.getElementById('confirmDeleteBtn').addEventListener('click', function() {
             document.getElementById('confirmationModal').style.display = 'flex';
@@ -533,65 +588,7 @@
             }, 50);
         });
 
-        // Add shake animation keyframes
-        const style = document.createElement('style');
-        style.textContent = `
-            @keyframes shake {
-                0%, 100% { transform: translateX(0); }
-                10%, 30%, 50%, 70%, 90% { transform: translateX(-5px); }
-                20%, 40%, 60%, 80% { transform: translateX(5px); }
-            }
-            
-            @keyframes fadeInUp {
-                from {
-                    opacity: 0;
-                    transform: translateY(30px);
-                }
-                to {
-                    opacity: 1;
-                    transform: translateY(0);
-                }
-            }
-            
-            .container {
-                animation: fadeInUp 0.6s ease-out;
-            }
-            
-            .danger-warning {
-                animation: fadeInUp 0.8s ease-out 0.2s both;
-            }
-            
-            .consequences-list {
-                animation: fadeInUp 0.8s ease-out 0.4s both;
-            }
-            
-            .actions {
-                animation: fadeInUp 0.8s ease-out 0.6s both;
-            }
-        `;
-        document.head.appendChild(style);
-
-        // Add countdown timer when delete is clicked
-        let countdownInterval;
-        
-        function startCountdown() {
-            let countdown = 5;
-            const deleteBtn = document.getElementById('finalDeleteBtn');
-            const originalText = deleteBtn.innerHTML;
-            
-            countdownInterval = setInterval(() => {
-                deleteBtn.innerHTML = `<span>⏳</span> DELETING IN ${countdown}...`;
-                countdown--;
-                
-                if (countdown < 0) {
-                    clearInterval(countdownInterval);
-                    deleteBtn.innerHTML = '<span>💥</span> DELETING...';
-                    document.getElementById('deleteForm').submit();
-                }
-            }, 1000);
-        }
-
-        // Add some dramatic effect
+        // Add dramatic effect
         document.getElementById('confirmDeleteBtn').addEventListener('mouseenter', function() {
             document.body.style.background = 'linear-gradient(135deg, #0f1419 0%, #2d1b1b 100%)';
         });
@@ -601,26 +598,4 @@
         });
     </script>
 </body>
-</html>="btn btn-danger" id="confirmDeleteBtn">
-                        <span>🗑️</span> Delete Problem Forever
-                    </button>
-                </div>
-            </form>
-        </div>
-    </div>
-
-    <!-- Confirmation Modal -->
-    <div class="confirmation-modal" id="confirmationModal">
-        <div class="modal-content">
-            <h2 class="modal-title">⚠️ Final Confirmation</h2>
-            <p style="color: #a0aec0; margin-bottom: 20px;">
-                To confirm deletion, please type the exact problem name:
-            </p>
-            <p style="color: #00d4aa; font-weight: 600; margin-bottom: 15px;">
-                "{{ problem.name }}"
-            </p>
-            <input type="text" id="confirmationInput" class="confirmation-input" 
-                   placeholder="Type the problem name here...">
-            <div style="margin-top: 30px;">
-                <button type="button" class="btn btn-secondary" onclick="closeModal()">Cancel</button>
-                <button type="button" class
+</html>
