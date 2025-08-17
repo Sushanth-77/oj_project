@@ -1,4 +1,4 @@
-# compiler/views.py - RENDER-OPTIMIZED VERSION
+# compiler/views.py - FIXED VERSION
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404
 from django.contrib.auth.decorators import login_required
@@ -19,7 +19,7 @@ import re
 import signal
 import threading
 from concurrent.futures import ThreadPoolExecutor, TimeoutError
-import resource
+import stat
 
 # Set up logging
 logger = logging.getLogger(__name__)
@@ -143,53 +143,53 @@ def get_language_display(submission):
     return 'Unknown'
 
 # ============================
-# RENDER-OPTIMIZED CODE EXECUTION
+# FIXED CODE EXECUTION
 # ============================
 
 class RenderOptimizedRunner:
-    """Lightweight, fast code runner optimized for Render's constraints"""
+    """Fixed code runner with proper error handling"""
     
     def __init__(self):
         # Use /tmp which is fastest on most cloud platforms
         self.temp_base = Path('/tmp')
         self.timeout_limits = {
-            'py': 10, 'python': 10,  # Reduced timeouts
-            'cpp': 8, 'c': 8,
+            'py': 10, 'python': 10,
+            'cpp': 15, 'c': 15,  # Increased timeout for C++
             'java': 12, 'js': 8
         }
-        self.compile_timeout = 10
-        # Set resource limits to prevent hanging
-        self._set_resource_limits()
+        self.compile_timeout = 15  # Increased compile timeout
         
-    def _set_resource_limits(self):
-        """Set resource limits to prevent system overload"""
-        try:
-            # Limit memory to 128MB per process
-            resource.setrlimit(resource.RLIMIT_AS, (128 * 1024 * 1024, 128 * 1024 * 1024))
-            # Limit CPU time
-            resource.setrlimit(resource.RLIMIT_CPU, (30, 30))
-        except:
-            pass  # Some platforms don't support all limits
-    
-    def run_code(self, language, code, input_data=""):
-        """Fast, lightweight code execution"""
-        unique_id = uuid.uuid4().hex[:8]  # Shorter IDs
+    def run_code(self, language, code, input_data="", timeout_override=None):
+        """Fixed code execution with proper timeout handling"""
+        unique_id = uuid.uuid4().hex[:8]
         temp_dir = self.temp_base / f"oj_{unique_id}"
         
         try:
             temp_dir.mkdir(exist_ok=True)
             
+            # Use timeout override if provided
+            if timeout_override:
+                original_timeout = self.timeout_limits.get(language, 10)
+                self.timeout_limits[language] = timeout_override
+            
             # Route to optimized runners
+            result = None
             if language in ['py', 'python']:
-                return self._run_python_fast(code, input_data, temp_dir, unique_id)
+                result = self._run_python_fast(code, input_data, temp_dir, unique_id)
             elif language == 'cpp':
-                return self._run_cpp_fast(code, input_data, temp_dir, unique_id)
+                result = self._run_cpp_fast(code, input_data, temp_dir, unique_id)
+            elif language == 'c':
+                result = self._run_c_fast(code, input_data, temp_dir, unique_id)
             elif language == 'java':
-                return self._run_java_fast(code, input_data, temp_dir, unique_id)
+                result = self._run_java_fast(code, input_data, temp_dir, unique_id)
             elif language in ['js', 'javascript']:
-                return self._run_js_fast(code, input_data, temp_dir, unique_id)
-            else:
-                return None
+                result = self._run_js_fast(code, input_data, temp_dir, unique_id)
+            
+            # Restore original timeout
+            if timeout_override:
+                self.timeout_limits[language] = original_timeout
+                
+            return result
                 
         except Exception as e:
             logger.error(f"Execution error: {str(e)}")
@@ -202,12 +202,11 @@ class RenderOptimizedRunner:
                 pass
     
     def _run_python_fast(self, code, input_data, temp_dir, unique_id):
-        """Optimized Python execution"""
+        """Fixed Python execution"""
         try:
             code_file = temp_dir / f"{unique_id}.py"
             code_file.write_text(code, encoding='utf-8')
             
-            # Use subprocess.run with direct input for speed
             try:
                 result = subprocess.run(
                     ['python3', str(code_file)],
@@ -221,11 +220,14 @@ class RenderOptimizedRunner:
                 if result.returncode == 0:
                     return result.stdout
                 else:
-                    logger.error(f"Python error: {result.stderr[:100]}")
+                    logger.error(f"Python error: {result.stderr[:200]}")
                     return None
                     
             except subprocess.TimeoutExpired:
                 logger.error("Python execution timeout")
+                return None
+            except FileNotFoundError:
+                logger.error("Python3 not found")
                 return None
                 
         except Exception as e:
@@ -233,24 +235,44 @@ class RenderOptimizedRunner:
             return None
     
     def _run_cpp_fast(self, code, input_data, temp_dir, unique_id):
-        """Optimized C++ execution"""
+        """Fixed C++ execution with better error handling"""
         try:
             code_file = temp_dir / f"{unique_id}.cpp"
-            executable = temp_dir / f"{unique_id}"
+            executable = temp_dir / f"{unique_id}_exe"
             
-            code_file.write_text(code, encoding='utf-8')
-            
-            # Fast compilation with minimal flags
-            compile_result = subprocess.run(
-                ['g++', str(code_file), '-o', str(executable), '-O1'],
-                capture_output=True,
-                text=True,
-                timeout=self.compile_timeout
-            )
-            
-            if compile_result.returncode != 0:
-                logger.error(f"C++ compile error: {compile_result.stderr[:100]}")
+            # Write code file
+            try:
+                code_file.write_text(code, encoding='utf-8')
+            except Exception as e:
+                logger.error(f"Error writing C++ file: {str(e)}")
                 return None
+            
+            # Compilation with better flags
+            try:
+                compile_result = subprocess.run(
+                    ['g++', '-std=c++17', str(code_file), '-o', str(executable), '-O2'],
+                    capture_output=True,
+                    text=True,
+                    timeout=self.compile_timeout,
+                    cwd=str(temp_dir)
+                )
+                
+                if compile_result.returncode != 0:
+                    logger.error(f"C++ compile error: {compile_result.stderr[:200]}")
+                    return None
+                    
+            except subprocess.TimeoutExpired:
+                logger.error("C++ compilation timeout")
+                return None
+            except FileNotFoundError:
+                logger.error("g++ compiler not found")
+                return None
+            
+            # Make executable
+            try:
+                os.chmod(str(executable), stat.S_IRWXU | stat.S_IRGRP | stat.S_IROTH)
+            except:
+                pass  # Ignore chmod errors
             
             # Execute
             try:
@@ -263,34 +285,105 @@ class RenderOptimizedRunner:
                     cwd=str(temp_dir)
                 )
                 
-                return result.stdout if result.returncode == 0 else None
+                if result.returncode == 0:
+                    return result.stdout
+                else:
+                    logger.error(f"C++ runtime error: {result.stderr[:200]}")
+                    return None
                 
             except subprocess.TimeoutExpired:
+                logger.error("C++ execution timeout")
                 return None
                 
         except Exception as e:
             logger.error(f"C++ execution error: {str(e)}")
             return None
     
+    def _run_c_fast(self, code, input_data, temp_dir, unique_id):
+        """Fixed C execution"""
+        try:
+            code_file = temp_dir / f"{unique_id}.c"
+            executable = temp_dir / f"{unique_id}_exe"
+            
+            code_file.write_text(code, encoding='utf-8')
+            
+            # Compile
+            try:
+                compile_result = subprocess.run(
+                    ['gcc', '-std=c11', str(code_file), '-o', str(executable), '-O2'],
+                    capture_output=True,
+                    text=True,
+                    timeout=self.compile_timeout,
+                    cwd=str(temp_dir)
+                )
+                
+                if compile_result.returncode != 0:
+                    logger.error(f"C compile error: {compile_result.stderr[:200]}")
+                    return None
+                    
+            except subprocess.TimeoutExpired:
+                return None
+            except FileNotFoundError:
+                logger.error("gcc compiler not found")
+                return None
+            
+            # Make executable
+            try:
+                os.chmod(str(executable), stat.S_IRWXU | stat.S_IRGRP | stat.S_IROTH)
+            except:
+                pass
+            
+            # Execute
+            try:
+                result = subprocess.run(
+                    [str(executable)],
+                    input=input_data,
+                    capture_output=True,
+                    text=True,
+                    timeout=self.timeout_limits['c'],
+                    cwd=str(temp_dir)
+                )
+                
+                return result.stdout if result.returncode == 0 else None
+                
+            except subprocess.TimeoutExpired:
+                return None
+                
+        except Exception as e:
+            logger.error(f"C execution error: {str(e)}")
+            return None
+    
     def _run_java_fast(self, code, input_data, temp_dir, unique_id):
-        """Optimized Java execution"""
+        """Fixed Java execution"""
         try:
             class_name = self._extract_java_class_name(code)
             if not class_name:
-                return None
+                class_name = "Main"  # Default class name
+                # Wrap code in Main class if needed
+                if "class" not in code:
+                    code = f"public class Main {{\n{code}\n}}"
                 
             code_file = temp_dir / f"{class_name}.java"
             code_file.write_text(code, encoding='utf-8')
             
             # Compile
-            compile_result = subprocess.run(
-                ['javac', str(code_file)],
-                capture_output=True,
-                timeout=self.compile_timeout,
-                cwd=str(temp_dir)
-            )
-            
-            if compile_result.returncode != 0:
+            try:
+                compile_result = subprocess.run(
+                    ['javac', str(code_file)],
+                    capture_output=True,
+                    text=True,
+                    timeout=self.compile_timeout,
+                    cwd=str(temp_dir)
+                )
+                
+                if compile_result.returncode != 0:
+                    logger.error(f"Java compile error: {compile_result.stderr[:200]}")
+                    return None
+                    
+            except subprocess.TimeoutExpired:
+                return None
+            except FileNotFoundError:
+                logger.error("javac not found")
                 return None
             
             # Execute
@@ -314,7 +407,7 @@ class RenderOptimizedRunner:
             return None
     
     def _run_js_fast(self, code, input_data, temp_dir, unique_id):
-        """Optimized JavaScript execution"""
+        """Fixed JavaScript execution"""
         try:
             # Simple input wrapper for Node.js
             wrapped_code = f"""
@@ -342,13 +435,16 @@ function readline() {{ return lines[lineIndex++] || ''; }}
                 
             except subprocess.TimeoutExpired:
                 return None
+            except FileNotFoundError:
+                logger.error("node not found")
+                return None
                 
         except Exception as e:
             logger.error(f"JavaScript execution error: {str(e)}")
             return None
     
     def _extract_java_class_name(self, code):
-        """Quick Java class name extraction"""
+        """Extract Java class name"""
         match = re.search(r'public\s+class\s+(\w+)', code, re.IGNORECASE)
         if match:
             return match.group(1)
@@ -358,15 +454,15 @@ function readline() {{ return lines[lineIndex++] || ''; }}
 
 
 # ============================
-# OPTIMIZED TEST CASE HANDLING
+# FIXED TEST CASE HANDLING
 # ============================
 
 class FastTestParser:
-    """Lightning-fast test case parser optimized for double-newline separated test cases"""
+    """Fixed test case parser"""
     
     @staticmethod
     def normalize_output(text):
-        """Fast output normalization that preserves internal structure"""
+        """Fixed output normalization"""
         if not text:
             return ""
         # Replace different line endings but preserve internal newlines
@@ -376,12 +472,7 @@ class FastTestParser:
     
     @staticmethod
     def parse_test_cases(input_content, output_content):
-        """
-        Robust test case parsing that handles:
-        1. Double-newline separated test cases (primary method)
-        2. Single and multi-line inputs/outputs
-        3. Preserves internal structure of each test case
-        """
+        """Fixed test case parsing"""
         if not input_content.strip() or not output_content.strip():
             logger.warning("Empty input or output content")
             return []
@@ -389,7 +480,6 @@ class FastTestParser:
         logger.info("Parsing test cases with double-newline separation strategy")
         
         # Primary Strategy: Double newline separated sections
-        # Split on double newlines but preserve internal structure
         input_sections = FastTestParser._split_preserving_structure(input_content)
         output_sections = FastTestParser._split_preserving_structure(output_content)
         
@@ -409,22 +499,11 @@ class FastTestParser:
             logger.info(f"Successfully parsed {len(test_cases)} test cases using double-newline method")
             return test_cases
         
-        # Fallback 1: Input sections to output lines (multi-line input, single-line output)
-        if len(input_sections) > 1:
-            output_lines = [line.strip() for line in output_content.strip().split('\n') if line.strip()]
-            
-            if len(input_sections) == len(output_lines):
-                logger.info(f"Using input-sections-to-output-lines mapping: {len(input_sections)} cases")
-                return [
-                    {'input': inp.strip(), 'output': out.strip(), 'case_number': i + 1}
-                    for i, (inp, out) in enumerate(zip(input_sections, output_lines))
-                ]
-        
-        # Fallback 2: Line-by-line matching (for simple cases)
+        # Fallback: Line-by-line matching
         input_lines = [line.strip() for line in input_content.strip().split('\n') if line.strip()]
         output_lines = [line.strip() for line in output_content.strip().split('\n') if line.strip()]
         
-        if len(input_lines) == len(output_lines) and len(input_lines) > 1:
+        if len(input_lines) == len(output_lines) and len(input_lines) > 0:
             logger.info(f"Using line-by-line mapping: {len(input_lines)} cases")
             return [
                 {'input': inp, 'output': out, 'case_number': i + 1}
@@ -441,10 +520,7 @@ class FastTestParser:
     
     @staticmethod
     def _split_preserving_structure(content):
-        """
-        Split content on double newlines while preserving internal structure.
-        Handles various edge cases like trailing newlines, empty sections, etc.
-        """
+        """Split content on double newlines"""
         if not content.strip():
             return []
         
@@ -458,10 +534,10 @@ class FastTestParser:
         sections = []
         for section in raw_sections:
             section = section.strip()
-            if section:  # Only add non-empty sections
+            if section:
                 sections.append(section)
         
-        # Handle case where there might be no double newlines (single test case)
+        # Handle case where there might be no double newlines
         if not sections and normalized.strip():
             sections = [normalized.strip()]
         
@@ -469,7 +545,7 @@ class FastTestParser:
     
     @staticmethod
     def detailed_comparison(expected, actual, case_number):
-        """Detailed comparison for debugging test case failures"""
+        """Detailed comparison for debugging"""
         if expected == actual:
             return True
         
@@ -477,31 +553,11 @@ class FastTestParser:
         logger.error(f"Expected ({len(expected)} chars): {repr(expected)}")
         logger.error(f"Actual   ({len(actual)} chars): {repr(actual)}")
         
-        # Character-by-character analysis for debugging
-        if len(expected) != len(actual):
-            logger.error(f"Length mismatch: expected {len(expected)}, got {len(actual)}")
-        
-        # Find first difference
-        min_len = min(len(expected), len(actual))
-        for i in range(min_len):
-            if expected[i] != actual[i]:
-                logger.error(f"First difference at position {i}:")
-                logger.error(f"  Expected: {repr(expected[i])} (ord: {ord(expected[i])})")
-                logger.error(f"  Actual:   {repr(actual[i])} (ord: {ord(actual[i])})")
-                
-                # Show context around difference
-                start = max(0, i - 5)
-                end = min(len(expected), i + 6)
-                logger.error(f"  Context expected: {repr(expected[start:end])}")
-                end = min(len(actual), i + 6)
-                logger.error(f"  Context actual:   {repr(actual[start:end])}")
-                break
-        
         return False
 
 
 # ============================
-# OPTIMIZED EVALUATION SYSTEM
+# FIXED EVALUATION SYSTEM
 # ============================
 
 # Global instances
@@ -509,12 +565,7 @@ code_runner = RenderOptimizedRunner()
 test_parser = FastTestParser()
 
 def evaluate_submission(submission, language):
-    """
-    BULLETPROOF submission evaluation that handles:
-    1. Visible database test cases first (if any)
-    2. Hidden file-based test cases second
-    3. Proper timeout handling for recursive algorithms
-    """
+    """Fixed submission evaluation"""
     try:
         problem = submission.problem
         logger.info(f"🚀 Starting evaluation for problem {problem.short_code}")
@@ -529,17 +580,17 @@ def evaluate_submission(submission, language):
                 for i, test_case in enumerate(db_test_cases, 1):
                     logger.info(f"🧪 Testing visible case {i}/{db_test_cases.count()}")
                     
-                    # Execute code with specific timeout for recursive problems
+                    # Execute code
                     output = code_runner.run_code(
                         language, 
                         submission.code_text, 
                         test_case.input,
-                        timeout_override=15  # Shorter timeout for visible cases
+                        timeout_override=15
                     )
                     
                     if output is None:
                         logger.error(f"❌ Runtime error/timeout in visible test case {i}")
-                        return 'TLE'  # More specific error for timeouts
+                        return 'RE'
                     
                     expected = test_parser.normalize_output(test_case.output)
                     actual = test_parser.normalize_output(output)
@@ -551,15 +602,13 @@ def evaluate_submission(submission, language):
                         return 'WA'
                     
                     logger.info(f"✅ Visible test case {i} passed")
-                
-                logger.info("🎉 All visible test cases passed! Moving to hidden tests...")
         
-        # Phase 2: File-based test cases (hidden test cases)
+        # Phase 2: File-based test cases
         verdict = evaluate_file_test_cases(submission, language)
         if verdict != 'AC':
             return verdict
         
-        logger.info("🎉 All test cases (visible + hidden) passed!")
+        logger.info("🎉 All test cases passed!")
         return 'AC'
         
     except Exception as e:
@@ -567,11 +616,11 @@ def evaluate_submission(submission, language):
         return 'RE'
 
 def evaluate_file_test_cases(submission, language):
-    """Optimized file-based test case evaluation with longer timeouts for hidden tests"""
+    """Fixed file-based test case evaluation"""
     try:
         problem = submission.problem
         
-        # Use more efficient path resolution
+        # Use BASE_DIR from settings
         base_dir = Path(settings.BASE_DIR)
         input_file = base_dir / "inputs" / f"{problem.short_code}.txt"
         output_file = base_dir / "outputs" / f"{problem.short_code}.txt"
@@ -580,20 +629,16 @@ def evaluate_file_test_cases(submission, language):
             logger.info(f"No test files found for problem {problem.short_code}")
             return 'AC'  # No test files = accepted
         
-        # Read files efficiently with proper encoding
+        # Read files
         try:
             input_content = input_file.read_text(encoding='utf-8', errors='replace')
             output_content = output_file.read_text(encoding='utf-8', errors='replace')
-            logger.info(f"Read hidden test files: input={len(input_content)} chars, output={len(output_content)} chars")
+            logger.info(f"Read test files: input={len(input_content)} chars, output={len(output_content)} chars")
         except Exception as e:
             logger.error(f"Error reading test files: {str(e)}")
             return 'RE'
         
-        # Debug: Show raw file content structure
-        logger.debug(f"Input file structure (first 200 chars): {repr(input_content[:200])}")
-        logger.debug(f"Output file structure (first 200 chars): {repr(output_content[:200])}")
-        
-        # Parse test cases using enhanced parser
+        # Parse test cases
         test_cases = test_parser.parse_test_cases(input_content, output_content)
         
         if not test_cases:
@@ -602,17 +647,12 @@ def evaluate_file_test_cases(submission, language):
         
         logger.info(f"Successfully parsed {len(test_cases)} hidden test cases")
         
-        # Debug: Show parsed test case structure
-        for i, tc in enumerate(test_cases[:3], 1):  # Show first 3 cases for debugging
-            logger.debug(f"Hidden test case {i}: input={repr(tc['input'][:50])}, output={repr(tc['output'][:50])}")
-        
-        # Run test cases with enhanced comparison and longer timeout for hidden tests
+        # Run test cases
         for i, test_case in enumerate(test_cases, 1):
             logger.info(f"Executing hidden test case {i}/{len(test_cases)}")
             
-            # Execute code with longer timeout for hidden/complex test cases
-            # This allows recursive algorithms more time on hidden tests
-            timeout = 25 if language == 'cpp' else 20  # Longer timeout for hidden tests
+            # Use longer timeout for hidden tests
+            timeout = 20 if language == 'cpp' else 15
             
             actual_output = code_runner.run_code(
                 language, 
@@ -623,13 +663,13 @@ def evaluate_file_test_cases(submission, language):
             
             if actual_output is None:
                 logger.error(f"Runtime error/timeout in hidden test case {i}")
-                return 'TLE'  # Return TLE for timeout on hidden tests
+                return 'RE'
             
-            # Normalize both outputs for comparison
+            # Normalize outputs
             expected = test_parser.normalize_output(test_case['output'])
             actual = test_parser.normalize_output(actual_output)
             
-            # Use detailed comparison for better debugging
+            # Compare
             if not test_parser.detailed_comparison(expected, actual, i):
                 return 'WA'
             
@@ -654,130 +694,3 @@ def run_code(language, code, input_data):
 def normalize_output(output):
     """Legacy compatibility"""
     return test_parser.normalize_output(output)
-
-# ============================
-# DEBUG AND VALIDATION UTILITIES
-# ============================
-
-def validate_test_files(problem_code):
-    """
-    Debug utility to validate test file parsing
-    Use this in Django shell to test your specific format
-    """
-    try:
-        base_dir = Path(settings.BASE_DIR)
-        input_file = base_dir / "inputs" / f"{problem_code}.txt"
-        output_file = base_dir / "outputs" / f"{problem_code}.txt"
-        
-        if not input_file.exists() or not output_file.exists():
-            print(f"❌ Test files not found for {problem_code}")
-            return False
-        
-        # Read files
-        input_content = input_file.read_text(encoding='utf-8', errors='replace')
-        output_content = output_file.read_text(encoding='utf-8', errors='replace')
-        
-        print(f"📁 Files for {problem_code}:")
-        print(f"Input file size: {len(input_content)} characters")
-        print(f"Output file size: {len(output_content)} characters")
-        print()
-        
-        # Show raw structure
-        print("🔍 Raw Input Structure:")
-        print(repr(input_content))
-        print()
-        print("🔍 Raw Output Structure:")
-        print(repr(output_content))
-        print()
-        
-        # Parse test cases
-        test_cases = FastTestParser.parse_test_cases(input_content, output_content)
-        
-        print(f"✅ Parsed {len(test_cases)} test cases:")
-        for i, tc in enumerate(test_cases, 1):
-            print(f"\nTest Case {i}:")
-            print(f"  Input: {repr(tc['input'])}")
-            print(f"  Expected Output: {repr(tc['output'])}")
-            
-            # Show how input/output look when printed
-            print(f"  Input (formatted):")
-            for line_num, line in enumerate(tc['input'].split('\n'), 1):
-                print(f"    Line {line_num}: '{line}'")
-            
-            print(f"  Output (formatted):")
-            for line_num, line in enumerate(tc['output'].split('\n'), 1):
-                print(f"    Line {line_num}: '{line}'")
-        
-        return True
-        
-    except Exception as e:
-        print(f"❌ Error validating test files: {str(e)}")
-        import traceback
-        traceback.print_exc()
-        return False
-
-def debug_submission_execution(submission_id):
-    """
-    Debug utility to test submission execution step by step
-    Use in Django shell: debug_submission_execution(123)
-    """
-    try:
-        from core.models import Submission
-        submission = Submission.objects.get(id=submission_id)
-        
-        print(f"🚀 Debugging submission {submission_id} for problem {submission.problem.short_code}")
-        print(f"Language: {get_language_display(submission)}")
-        print(f"Code length: {len(submission.code_text)} characters")
-        print()
-        
-        # Validate test files first
-        if not validate_test_files(submission.problem.short_code):
-            return False
-        
-        # Test code execution with sample input
-        print("🧪 Testing code execution:")
-        
-        # Get test cases
-        base_dir = Path(settings.BASE_DIR)
-        input_file = base_dir / "inputs" / f"{submission.problem.short_code}.txt"
-        output_file = base_dir / "outputs" / f"{submission.problem.short_code}.txt"
-        
-        input_content = input_file.read_text(encoding='utf-8', errors='replace')
-        output_content = output_file.read_text(encoding='utf-8', errors='replace')
-        
-        test_cases = FastTestParser.parse_test_cases(input_content, output_content)
-        
-        # Test first case
-        if test_cases:
-            test_case = test_cases[0]
-            print(f"Testing with first test case:")
-            print(f"Input: {repr(test_case['input'])}")
-            
-            actual_output = code_runner.run_code(
-                submission.language or 'py',
-                submission.code_text,
-                test_case['input']
-            )
-            
-            print(f"Code output: {repr(actual_output)}")
-            print(f"Expected: {repr(test_case['output'])}")
-            
-            if actual_output is not None:
-                expected = FastTestParser.normalize_output(test_case['output'])
-                actual = FastTestParser.normalize_output(actual_output)
-                
-                if expected == actual:
-                    print("✅ First test case PASSED")
-                else:
-                    print("❌ First test case FAILED")
-                    FastTestParser.detailed_comparison(expected, actual, 1)
-            else:
-                print("❌ Code execution failed")
-        
-        return True
-        
-    except Exception as e:
-        print(f"❌ Debug error: {str(e)}")
-        import traceback
-        traceback.print_exc()
-        return False
