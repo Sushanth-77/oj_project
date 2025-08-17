@@ -458,7 +458,7 @@ function readline() {{ return lines[lineIndex++] || ''; }}
 # ============================
 
 class FastTestParser:
-    """Fixed test case parser"""
+    """Fixed test case parser with better spacing handling"""
     
     @staticmethod
     def normalize_output(text):
@@ -472,36 +472,45 @@ class FastTestParser:
     
     @staticmethod
     def parse_test_cases(input_content, output_content):
-        """Fixed test case parsing"""
+        """Enhanced test case parsing with multiple strategies"""
         if not input_content.strip() or not output_content.strip():
             logger.warning("Empty input or output content")
             return []
         
-        logger.info("Parsing test cases with double-newline separation strategy")
+        logger.info("Starting enhanced test case parsing...")
         
-        # Primary Strategy: Double newline separated sections
-        input_sections = FastTestParser._split_preserving_structure(input_content)
-        output_sections = FastTestParser._split_preserving_structure(output_content)
+        # Strategy 1: Multiple empty lines (2 or more newlines)
+        input_sections = FastTestParser._split_by_multiple_newlines(input_content)
+        output_sections = FastTestParser._split_by_multiple_newlines(output_content)
         
-        logger.info(f"Found {len(input_sections)} input sections, {len(output_sections)} output sections")
+        logger.info(f"Multiple newlines strategy: {len(input_sections)} inputs, {len(output_sections)} outputs")
         
-        # Perfect match - same number of sections
-        if len(input_sections) > 0 and len(input_sections) == len(output_sections):
-            test_cases = []
-            for i, (inp, out) in enumerate(zip(input_sections, output_sections)):
-                test_cases.append({
-                    'input': inp.strip(),
-                    'output': out.strip(), 
-                    'case_number': i + 1
-                })
-                logger.debug(f"Test case {i+1}: Input={repr(inp[:50])}, Output={repr(out[:50])}")
-            
-            logger.info(f"Successfully parsed {len(test_cases)} test cases using double-newline method")
-            return test_cases
+        if len(input_sections) > 1 and len(input_sections) == len(output_sections):
+            return FastTestParser._create_test_cases(input_sections, output_sections, "multiple newlines")
         
-        # Fallback: Line-by-line matching
+        # Strategy 2: Double newline separation
+        input_sections = FastTestParser._split_by_double_newlines(input_content)
+        output_sections = FastTestParser._split_by_double_newlines(output_content)
+        
+        logger.info(f"Double newlines strategy: {len(input_sections)} inputs, {len(output_sections)} outputs")
+        
+        if len(input_sections) > 1 and len(input_sections) == len(output_sections):
+            return FastTestParser._create_test_cases(input_sections, output_sections, "double newlines")
+        
+        # Strategy 3: Blank line separation (single empty line)
+        input_sections = FastTestParser._split_by_blank_lines(input_content)
+        output_sections = FastTestParser._split_by_blank_lines(output_content)
+        
+        logger.info(f"Blank lines strategy: {len(input_sections)} inputs, {len(output_sections)} outputs")
+        
+        if len(input_sections) > 1 and len(input_sections) == len(output_sections):
+            return FastTestParser._create_test_cases(input_sections, output_sections, "blank lines")
+        
+        # Strategy 4: Line-by-line matching (each non-empty line is a test case)
         input_lines = [line.strip() for line in input_content.strip().split('\n') if line.strip()]
         output_lines = [line.strip() for line in output_content.strip().split('\n') if line.strip()]
+        
+        logger.info(f"Line-by-line strategy: {len(input_lines)} inputs, {len(output_lines)} outputs")
         
         if len(input_lines) == len(output_lines) and len(input_lines) > 0:
             logger.info(f"Using line-by-line mapping: {len(input_lines)} cases")
@@ -519,41 +528,82 @@ class FastTestParser:
         }]
     
     @staticmethod
-    def _split_preserving_structure(content):
-        """Split content on double newlines"""
+    def _split_by_multiple_newlines(content):
+        """Split content by multiple consecutive newlines (2 or more)"""
         if not content.strip():
             return []
         
-        # Normalize line endings first
+        import re
         normalized = content.replace('\r\n', '\n').replace('\r', '\n')
         
-        # Split on double newlines
-        raw_sections = normalized.split('\n\n')
+        # Split on 2 or more consecutive newlines
+        raw_sections = re.split(r'\n{2,}', normalized)
         
-        # Filter out empty sections and clean up
         sections = []
         for section in raw_sections:
             section = section.strip()
             if section:
                 sections.append(section)
         
-        # Handle case where there might be no double newlines
-        if not sections and normalized.strip():
-            sections = [normalized.strip()]
+        return sections
+    
+    @staticmethod
+    def _split_by_double_newlines(content):
+        """Split content by exactly double newlines"""
+        if not content.strip():
+            return []
+        
+        normalized = content.replace('\r\n', '\n').replace('\r', '\n')
+        raw_sections = normalized.split('\n\n')
+        
+        sections = []
+        for section in raw_sections:
+            section = section.strip()
+            if section:
+                sections.append(section)
         
         return sections
     
     @staticmethod
-    def detailed_comparison(expected, actual, case_number):
-        """Detailed comparison for debugging"""
-        if expected == actual:
-            return True
+    def _split_by_blank_lines(content):
+        """Split content by single blank lines"""
+        if not content.strip():
+            return []
         
-        logger.error(f"❌ Test case {case_number} failed:")
-        logger.error(f"Expected ({len(expected)} chars): {repr(expected)}")
-        logger.error(f"Actual   ({len(actual)} chars): {repr(actual)}")
+        normalized = content.replace('\r\n', '\n').replace('\r', '\n')
+        lines = normalized.split('\n')
         
-        return False
+        sections = []
+        current_section = []
+        
+        for line in lines:
+            if line.strip() == '':  # Empty line
+                if current_section:
+                    sections.append('\n'.join(current_section).strip())
+                    current_section = []
+            else:
+                current_section.append(line)
+        
+        # Add last section if it exists
+        if current_section:
+            sections.append('\n'.join(current_section).strip())
+        
+        return [s for s in sections if s]  # Filter out empty sections
+    
+    @staticmethod
+    def _create_test_cases(input_sections, output_sections, strategy_name):
+        """Create test cases from sections"""
+        test_cases = []
+        for i, (inp, out) in enumerate(zip(input_sections, output_sections)):
+            test_cases.append({
+                'input': inp.strip(),
+                'output': out.strip(), 
+                'case_number': i + 1
+            })
+            logger.debug(f"Test case {i+1}: Input={repr(inp[:50])}, Output={repr(out[:50])}")
+        
+        logger.info(f"Successfully parsed {len(test_cases)} test cases using {strategy_name} method")
+        return test_cases
 
 
 # ============================
