@@ -1,4 +1,4 @@
-# compiler/views.py - RENDER-OPTIMIZED VERSION with async handling
+# compiler/views.py - RENDER-OPTIMIZED VERSION with FIXED double newline parsing
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404
 from django.contrib.auth.decorators import login_required
@@ -387,11 +387,11 @@ function readline() {{ return lines[lineIndex++] || ''; }}
 
 
 # ============================
-# FIXED TEST CASE PARSER
+# FIXED TEST CASE PARSER - HANDLES DOUBLE NEWLINES CORRECTLY
 # ============================
 
 class RenderTestParser:
-    """Fixed test case parser for your file format"""
+    """CORRECTED test case parser for double newline separation"""
     
     @staticmethod
     def normalize_output(text):
@@ -402,39 +402,50 @@ class RenderTestParser:
     
     @staticmethod
     def parse_test_cases(input_content, output_content):
-        """Parse test cases using EXACTLY your format (double newline separation)"""
+        """Parse test cases using DOUBLE newline separation (CORRECTED)"""
         if not input_content.strip() or not output_content.strip():
             return []
         
-        logger.info("🔍 Parsing test cases with double newline strategy")
+        logger.info("🔍 Parsing test cases with DOUBLE newline strategy")
         
-        # Normalize line endings
+        # Normalize line endings first
         input_content = input_content.replace('\r\n', '\n').replace('\r', '\n')
         output_content = output_content.replace('\r\n', '\n').replace('\r', '\n')
         
-        # Split by double newlines (your format)
+        logger.info(f"📋 Raw input content length: {len(input_content)} chars")
+        logger.info(f"📋 Raw output content length: {len(output_content)} chars")
+        
+        # Split by double newlines and clean up
         input_sections = []
         output_sections = []
         
         # Split input by double newlines
-        raw_input_sections = input_content.split('\n\n')
-        for section in raw_input_sections:
-            section = section.strip()
-            if section:
-                input_sections.append(section)
+        raw_input_parts = input_content.split('\n\n')
+        logger.info(f"🔍 Split input into {len(raw_input_parts)} parts by double newlines")
+        
+        for i, part in enumerate(raw_input_parts):
+            cleaned_part = part.strip()
+            if cleaned_part:  # Only keep non-empty parts
+                input_sections.append(cleaned_part)
+                logger.debug(f"📝 Input section {len(input_sections)}: '{cleaned_part}'")
         
         # Split output by double newlines  
-        raw_output_sections = output_content.split('\n\n')
-        for section in raw_output_sections:
-            section = section.strip()
-            if section:
-                output_sections.append(section)
+        raw_output_parts = output_content.split('\n\n')
+        logger.info(f"🔍 Split output into {len(raw_output_parts)} parts by double newlines")
         
-        logger.info(f"📊 Found {len(input_sections)} inputs, {len(output_sections)} outputs")
+        for i, part in enumerate(raw_output_parts):
+            cleaned_part = part.strip()
+            if cleaned_part:  # Only keep non-empty parts
+                output_sections.append(cleaned_part)
+                logger.debug(f"📝 Output section {len(output_sections)}: '{cleaned_part}'")
+        
+        logger.info(f"📊 Final count: {len(input_sections)} input sections, {len(output_sections)} output sections")
         
         # Verify counts match
         if len(input_sections) != len(output_sections):
-            logger.error(f"❌ Mismatch: {len(input_sections)} inputs vs {len(output_sections)} outputs")
+            logger.error(f"❌ Section count mismatch: {len(input_sections)} inputs vs {len(output_sections)} outputs")
+            logger.error(f"Input sections: {input_sections}")
+            logger.error(f"Output sections: {output_sections}")
             return []
         
         # Create test cases
@@ -445,28 +456,38 @@ class RenderTestParser:
                 'output': out,
                 'case_number': i + 1
             })
-            logger.debug(f"📝 Test case {i+1}: Input={repr(inp[:30])}, Output={repr(out[:30])}")
+            logger.info(f"✅ Created test case {i+1}: Input='{inp}' -> Output='{out}'")
         
-        logger.info(f"✅ Successfully parsed {len(test_cases)} test cases")
+        logger.info(f"🎉 Successfully parsed {len(test_cases)} test cases")
         return test_cases
     
     @staticmethod
     def detailed_comparison(expected, actual, case_number):
-        """Detailed output comparison with logging"""
-        if expected == actual:
+        """Detailed output comparison with extensive logging"""
+        expected_clean = expected.strip()
+        actual_clean = actual.strip()
+        
+        logger.info(f"🔍 Comparing test case {case_number}:")
+        logger.info(f"  Expected: '{expected_clean}' (len={len(expected_clean)})")
+        logger.info(f"  Actual:   '{actual_clean}' (len={len(actual_clean)})")
+        
+        if expected_clean == actual_clean:
             logger.info(f"✅ Test case {case_number}: PASS")
             return True
         
         logger.error(f"❌ Test case {case_number}: FAIL")
-        logger.error(f"Expected ({len(expected)} chars): {repr(expected)}")
-        logger.error(f"Actual ({len(actual)} chars): {repr(actual)}")
+        logger.error(f"Expected bytes: {expected_clean.encode()}")
+        logger.error(f"Actual bytes:   {actual_clean.encode()}")
         
         # Character-by-character comparison for debugging
-        min_len = min(len(expected), len(actual))
+        min_len = min(len(expected_clean), len(actual_clean))
         for i in range(min_len):
-            if expected[i] != actual[i]:
-                logger.error(f"First difference at position {i}: expected {repr(expected[i])}, got {repr(actual[i])}")
+            if expected_clean[i] != actual_clean[i]:
+                logger.error(f"First difference at position {i}: expected '{expected_clean[i]}' (ord={ord(expected_clean[i])}), got '{actual_clean[i]}' (ord={ord(actual_clean[i])})")
                 break
+        
+        if len(expected_clean) != len(actual_clean):
+            logger.error(f"Length difference: expected {len(expected_clean)}, got {len(actual_clean)}")
         
         return False
 
@@ -526,46 +547,48 @@ def evaluate_submission(submission, language):
         return 'RE'
 
 def evaluate_file_test_cases(submission, language):
-    """Render-optimized file test case evaluation"""
+    """Render-optimized file test case evaluation with CORRECTED double newline parsing"""
     try:
         problem = submission.problem
         
-        # FIXED: Use correct file paths
+        # Use correct file paths
         base_dir = Path(settings.BASE_DIR)
         input_file = base_dir / "inputs" / f"{problem.short_code}.txt"
         output_file = base_dir / "outputs" / f"{problem.short_code}.txt"
         
         logger.info(f"🔍 Looking for test files:")
-        logger.info(f"   Input: {input_file}")
-        logger.info(f"   Output: {output_file}")
-        logger.info(f"   Input exists: {input_file.exists()}")
-        logger.info(f"   Output exists: {output_file.exists()}")
+        logger.info(f"   Input: {input_file} (exists: {input_file.exists()})")
+        logger.info(f"   Output: {output_file} (exists: {output_file.exists()})")
         
         if not input_file.exists() or not output_file.exists():
             logger.info(f"No test files found for problem {problem.short_code} - accepting")
             return 'AC'
         
-        # Read files
+        # Read files with detailed logging
         try:
             input_content = input_file.read_text(encoding='utf-8', errors='replace')
             output_content = output_file.read_text(encoding='utf-8', errors='replace')
-            logger.info(f"📖 Read files: input={len(input_content)} chars, output={len(output_content)} chars")
+            logger.info(f"📖 Read files successfully:")
+            logger.info(f"   Input: {len(input_content)} characters")
+            logger.info(f"   Output: {len(output_content)} characters")
+            logger.debug(f"   Input preview: {repr(input_content[:100])}")
+            logger.debug(f"   Output preview: {repr(output_content[:100])}")
         except Exception as e:
             logger.error(f"Error reading test files: {str(e)}")
             return 'RE'
         
-        # Parse test cases using FIXED parser
+        # Parse test cases using CORRECTED parser
         test_cases = test_parser.parse_test_cases(input_content, output_content)
         
         if not test_cases:
-            logger.error("Failed to parse test cases")
+            logger.error("❌ Failed to parse any test cases")
             return 'RE'
         
-        logger.info(f"📋 Running {len(test_cases)} hidden test cases")
+        logger.info(f"🎯 Successfully parsed {len(test_cases)} test cases, now executing...")
         
         # Execute all test cases
         for i, test_case in enumerate(test_cases, 1):
-            logger.info(f"🔬 Executing hidden test case {i}/{len(test_cases)}")
+            logger.info(f"🚀 Executing test case {i}/{len(test_cases)}")
             
             # Render-optimized timeout
             timeout = 15 if language == 'cpp' else 12
@@ -578,23 +601,24 @@ def evaluate_file_test_cases(submission, language):
             )
             
             if actual_output is None:
-                logger.error(f"💥 Execution failed in hidden test case {i}")
+                logger.error(f"💥 Execution failed in test case {i}")
                 return 'RE'
             
-            # Compare outputs
+            # Compare outputs using detailed comparison
             expected = test_parser.normalize_output(test_case['output'])
             actual = test_parser.normalize_output(actual_output)
             
             if not test_parser.detailed_comparison(expected, actual, i):
+                logger.error(f"❌ Test case {i} failed comparison")
                 return 'WA'
             
-            logger.info(f"✅ Hidden test case {i} passed")
+            logger.info(f"✅ Test case {i} passed")
         
-        logger.info(f"🎉 All {len(test_cases)} hidden test cases passed!")
+        logger.info(f"🎉 All {len(test_cases)} test cases passed!")
         return 'AC'
         
     except Exception as e:
-        logger.error(f"File test evaluation error: {str(e)}", exc_info=True)
+        logger.error(f"💥 File test evaluation error: {str(e)}", exc_info=True)
         return 'RE'
 
 # Legacy compatibility functions
