@@ -2,7 +2,7 @@ FROM python:3.11-slim
 
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
-ENV PYTHONPATH="/app/oj_project"
+ENV PYTHONPATH="/app"
 ENV DJANGO_SETTINGS_MODULE=oj_project.settings
 
 WORKDIR /app
@@ -32,8 +32,8 @@ COPY . .
 # Make scripts executable
 RUN chmod +x build.sh startup.sh
 
-# Create directories
-RUN mkdir -p staticfiles media logs
+# Create directories for static files and file storage
+RUN mkdir -p staticfiles media logs inputs outputs
 
 EXPOSE 8000
 

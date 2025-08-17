@@ -1,4 +1,4 @@
-# core/views.py - Updated with proper compiler integration
+# core/views.py - RENDER-OPTIMIZED VERSION with async submission handling
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib import messages
@@ -9,171 +9,30 @@ from collections import defaultdict
 import json
 from django.core.files.storage import default_storage
 from django.core.files.base import ContentFile
+import threading
+from concurrent.futures import ThreadPoolExecutor
+import logging
 
 # Import the evaluation function from compiler app
 from compiler.views import evaluate_submission
 
 from .admin_utils import check_admin_access
 
-# Replace your existing problems_list function with this updated version:
 # Add these imports at the top of your views.py
 from django.contrib.auth.models import User
 from django.db.models import Count, Q
 from datetime import datetime, timedelta
-import logging
 
 # Set up logging
 logger = logging.getLogger(__name__)
+
+# Global thread pool for async submission handling
+submission_executor = ThreadPoolExecutor(max_workers=2)
 
 # Helper function for admin check
 def is_admin(user):
     """Check if user is admin/superuser"""
     return user.is_superuser or user.is_staff
-
-# Update your admin_dashboard view
-
-# Add these new views for Users and Analytics
-@login_required
-@user_passes_test(is_admin)
-def admin_users_list(request):
-    """Admin page to view and manage all users"""
-    search_query = request.GET.get('search', '').strip()
-    
-    users = User.objects.all()
-    
-    if search_query:
-        users = users.filter(
-            Q(username__icontains=search_query) |
-            Q(email__icontains=search_query) |
-            Q(first_name__icontains=search_query) |
-            Q(last_name__icontains=search_query)
-        )
-    
-    users = users.order_by('-date_joined')
-    
-    # Calculate user statistics
-    total_users = User.objects.count()
-    active_users = User.objects.filter(last_login__gte=datetime.now() - timedelta(days=30)).count()
-    admin_users = User.objects.filter(Q(is_staff=True) | Q(is_superuser=True)).count()
-    
-    # Get users with submission counts
-    users_with_stats = users.annotate(
-        submission_count=Count('submission'),
-        accepted_count=Count('submission', filter=Q(submission__verdict='AC'))
-    )
-    
-    context = {
-        'users': users_with_stats[:50],  # Limit to 50 for performance
-        'search_query': search_query,
-        'total_users': total_users,
-        'active_users': active_users,
-        'admin_users': admin_users,
-    }
-    
-    return render(request, 'admin/users_list.html', context)
-
-@login_required
-@user_passes_test(is_admin)
-def admin_analytics(request):
-    """Admin page showing platform analytics"""
-    # Time-based analytics
-    now = datetime.now()
-    last_week = now - timedelta(days=7)
-    last_month = now - timedelta(days=30)
-    
-    # Submission analytics
-    total_submissions = Submission.objects.count()
-    weekly_submissions = Submission.objects.filter(submitted__gte=last_week).count()
-    monthly_submissions = Submission.objects.filter(submitted__gte=last_month).count()
-    
-    # Problem analytics
-    total_problems = Problem.objects.count()
-    easy_problems = Problem.objects.filter(difficulty='E').count()
-    medium_problems = Problem.objects.filter(difficulty='M').count()
-    hard_problems = Problem.objects.filter(difficulty='H').count()
-    
-    # User analytics
-    total_users = User.objects.count()
-    active_users = User.objects.filter(last_login__gte=last_week).count()
-    new_users_this_month = User.objects.filter(date_joined__gte=last_month).count()
-    
-    # Verdict distribution
-    verdict_stats = Submission.objects.values('verdict').annotate(count=Count('verdict'))
-    
-    # Popular problems (most submitted)
-    popular_problems = Problem.objects.annotate(
-        submission_count=Count('submission')
-    ).order_by('-submission_count')[:10]
-    
-    # Daily submission trend (last 7 days)
-    daily_submissions = []
-    for i in range(7):
-        day = now - timedelta(days=i)
-        day_start = day.replace(hour=0, minute=0, second=0, microsecond=0)
-        day_end = day_start + timedelta(days=1)
-        
-        count = Submission.objects.filter(
-            submitted__gte=day_start,
-            submitted__lt=day_end
-        ).count()
-        
-        daily_submissions.append({
-            'date': day.strftime('%Y-%m-%d'),
-            'count': count
-        })
-    
-    context = {
-        'total_submissions': total_submissions,
-        'weekly_submissions': weekly_submissions,
-        'monthly_submissions': monthly_submissions,
-        'total_problems': total_problems,
-        'easy_problems': easy_problems,
-        'medium_problems': medium_problems,
-        'hard_problems': hard_problems,
-        'total_users': total_users,
-        'active_users': active_users,
-        'new_users_this_month': new_users_this_month,
-        'verdict_stats': verdict_stats,
-        'popular_problems': popular_problems,
-        'daily_submissions': daily_submissions,
-    }
-    
-    return render(request, 'admin/analytics.html', context)
-
-@login_required
-@user_passes_test(is_admin)
-def admin_problems_list(request):
-    """Admin page to view and manage all problems"""
-    search_query = request.GET.get('search', '').strip()
-    
-    problems = Problem.objects.all()
-    
-    if search_query:
-        problems = problems.filter(
-            Q(name__icontains=search_query) |
-            Q(short_code__icontains=search_query) |
-            Q(statement__icontains=search_query)
-        )
-    
-    problems = problems.order_by('-id')  # Latest first
-    
-    # Calculate difficulty counts from ALL problems (not just filtered ones)
-    all_problems = Problem.objects.all()
-    easy_count = all_problems.filter(difficulty='E').count()
-    medium_count = all_problems.filter(difficulty='M').count()
-    hard_count = all_problems.filter(difficulty='H').count()
-    total_problems = all_problems.count()
-    
-    context = {
-        'problems': problems,
-        'search_query': search_query,
-        'total_problems': total_problems,
-        'easy_count': easy_count,
-        'medium_count': medium_count,
-        'hard_count': hard_count,
-    }
-    
-    return render(request, 'admin/problems_list.html', context)
 
 def get_user_progress(user):
     """Helper function to calculate user progress"""
@@ -224,7 +83,6 @@ def get_user_progress(user):
             'total_solved': 0,
             'remaining_problems': total_problems_count,
         }
-# In your core/views.py, find the problems_list function and change this line:
 
 def problems_list(request):
     """Display list of all problems with search and filtering"""
@@ -260,24 +118,44 @@ def problems_list(request):
     total_count = all_problems.count()
     
     context = {
-    'problems': problems,
-    'search_query': search_query,
-    'difficulty_filter': difficulty_filter,
-    'user_progress': user_progress,
-    'easy_count': easy_count,
-    'medium_count': medium_count,
-    'hard_count': hard_count,
-    'total_problems_count': total_count,  # Changed from 'total_count' to 'total_problems_count'
-}
+        'problems': problems,
+        'search_query': search_query,
+        'difficulty_filter': difficulty_filter,
+        'user_progress': user_progress,
+        'easy_count': easy_count,
+        'medium_count': medium_count,
+        'hard_count': hard_count,
+        'total_problems_count': total_count,
+    }
     
-    # CHANGE THIS LINE FROM:
-    # return render(request, 'problems_list.html', context)
-    # TO:
     return render(request, 'problem_list.html', context)
-    
-    return render(request, 'problems_list.html', context)
+
+def async_evaluate_submission(submission_id, language):
+    """Async evaluation function that runs in background"""
+    try:
+        submission = Submission.objects.get(id=submission_id)
+        logger.info(f"🔄 Background evaluation started for submission {submission_id}")
+        
+        # Run evaluation
+        verdict = evaluate_submission(submission, language)
+        
+        # Update submission
+        submission.verdict = verdict
+        submission.save()
+        
+        logger.info(f"✅ Background evaluation completed for submission {submission_id}: {verdict}")
+        
+    except Exception as e:
+        logger.error(f"💥 Background evaluation failed for submission {submission_id}: {str(e)}")
+        try:
+            submission = Submission.objects.get(id=submission_id)
+            submission.verdict = 'RE'
+            submission.save()
+        except:
+            pass
+
 def problem_detail(request, short_code):
-    """Display problem details and handle submission"""
+    """Display problem details and handle submission with ASYNC processing"""
     try:
         problem = get_object_or_404(Problem, short_code=short_code)
     except Problem.DoesNotExist:
@@ -304,13 +182,13 @@ def problem_detail(request, short_code):
         'testcases': visible_testcases,
         'user_submissions': user_submissions,
         'user_progress': user_progress,
-        'problems': all_problems,  # For the dashboard section
+        'problems': all_problems,
         'easy_count': Problem.objects.filter(difficulty='E').count(),
         'medium_count': Problem.objects.filter(difficulty='M').count(),
         'hard_count': Problem.objects.filter(difficulty='H').count(),
     }
     
-    # Handle code submission
+    # Handle code submission with ASYNC processing
     if request.method == 'POST' and request.user.is_authenticated:
         code_text = request.POST.get('solution_code', '').strip()
         language = request.POST.get('language', 'python')
@@ -326,7 +204,7 @@ def problem_detail(request, short_code):
             messages.error(request, 'Code cannot be empty')
             return render(request, 'problem_detail.html', context)
         
-        # Basic validation - check for meaningful code
+        # Basic validation
         if len(code_text.strip()) < 10:
             messages.error(request, 'Please provide a meaningful solution')
             return render(request, 'problem_detail.html', context)
@@ -340,7 +218,7 @@ def problem_detail(request, short_code):
         }
         db_language = language_mapping.get(language, 'py')
         
-        # Create submission record first (with pending status)
+        # Create submission record immediately
         submission = Submission.objects.create(
             problem=problem,
             user=request.user,
@@ -349,75 +227,45 @@ def problem_detail(request, short_code):
             verdict='PE'  # Pending evaluation
         )
         
-        logger.info(f"Created submission {submission.id} for user {request.user.username} on problem {problem.short_code}")
+        logger.info(f"🆕 Created submission {submission.id} for user {request.user.username}")
         
-        try:
-            # For AI review only, just set a basic verdict and return
-            if action == 'ai_review_only':
-                submission.verdict = 'AC'  # Assume AC for AI review
-                submission.save()
-                
-                return JsonResponse({
-                    'success': True,
-                    'submission_id': submission.id,
-                    'message': 'Submission created for AI review'
-                })
-            
-            # Use the actual compiler evaluation function
-            logger.info(f"Starting evaluation for submission {submission.id}")
-            verdict = evaluate_submission(submission, db_language)
-            
-            # Update submission with the verdict
-            submission.verdict = verdict
+        # Handle different actions
+        if action == 'ai_review_only':
+            # For AI review, just set AC and return immediately
+            submission.verdict = 'AC'
             submission.save()
             
-            logger.info(f"Evaluation completed for submission {submission.id} with verdict: {verdict}")
-            
-            # Provide feedback based on action and verdict
-            if action == 'test':
-                if verdict == 'AC':
-                    messages.success(request, '✅ Test passed! Your code works correctly on the sample test cases.')
-                elif verdict == 'WA':
-                    messages.error(request, '❌ Wrong Answer. Your output doesn\'t match the expected results.')
-                elif verdict == 'RE':
-                    messages.error(request, '💥 Runtime Error. There\'s an error in your code execution.')
-                elif verdict == 'TLE':
-                    messages.error(request, '⏰ Time Limit Exceeded. Your code is taking too long to execute.')
-                elif verdict == 'CE':
-                    messages.error(request, '⚠️ Compilation Error. There\'s a syntax error in your code.')
-                else:
-                    messages.warning(request, f'Test completed with status: {submission.get_verdict_display()}')
-            else:  # submit
-                if verdict == 'AC':
-                    messages.success(request, '🎉 Congratulations! Your solution was accepted!')
-                elif verdict == 'WA':
-                    messages.error(request, '❌ Wrong Answer. Please check your logic and try again.')
-                elif verdict == 'RE':
-                    messages.error(request, '💥 Runtime Error. Please fix the errors in your code.')
-                elif verdict == 'TLE':
-                    messages.error(request, '⏰ Time Limit Exceeded. Try optimizing your solution.')
-                elif verdict == 'CE':
-                    messages.error(request, '⚠️ Compilation Error. Please fix the syntax errors.')
-                else:
-                    messages.warning(request, f'Submission completed with status: {submission.get_verdict_display()}')
+            return JsonResponse({
+                'success': True,
+                'submission_id': submission.id,
+                'message': 'Submission ready for AI review'
+            })
         
-        except Exception as e:
-            logger.error(f"Error during evaluation of submission {submission.id}: {str(e)}", exc_info=True)
-            submission.verdict = 'RE'  # Runtime error
-            submission.save()
+        elif action == 'test':
+            # For testing, provide immediate feedback but run async evaluation
+            messages.info(request, '⏳ Your code is being tested... This may take a moment.')
             
-            if action == 'test':
-                messages.error(request, '💥 Error occurred during testing. Please check your code.')
-            else:
-                messages.error(request, '💥 Error occurred during submission evaluation. Please try again.')
+            # Submit for async evaluation
+            submission_executor.submit(async_evaluate_submission, submission.id, db_language)
+            
+            # Redirect immediately - user can check submission status later
+            return redirect('core:problem_detail', short_code=short_code)
         
-        return redirect('core:problem_detail', short_code=short_code)
+        else:  # submit action
+            # For submission, provide immediate feedback and run async evaluation
+            messages.info(request, '🚀 Your solution has been submitted and is being evaluated... Check your submissions page for results.')
+            
+            # Submit for async evaluation
+            submission_executor.submit(async_evaluate_submission, submission.id, db_language)
+            
+            # Redirect immediately
+            return redirect('core:problem_detail', short_code=short_code)
     
     return render(request, 'problem_detail.html', context)
 
 @login_required
 def submissions_list(request):
-    """Display user's submissions"""
+    """Display user's submissions with real-time status"""
     submissions = Submission.objects.filter(user=request.user).order_by('-submitted')
     
     context = {
@@ -431,11 +279,27 @@ def submit_solution(request, short_code):
     """Handle solution submission - redirect to problem detail for processing"""
     return redirect('core:problem_detail', short_code=short_code)
 
-# Admin Views
-def is_admin(user):
-    """Check if user is admin/superuser"""
-    return user.is_superuser or user.is_staff
+@login_required
+def submission_status(request, submission_id):
+    """AJAX endpoint to check submission status"""
+    try:
+        submission = get_object_or_404(Submission, id=submission_id, user=request.user)
+        
+        return JsonResponse({
+            'success': True,
+            'status': submission.verdict,
+            'status_display': submission.get_verdict_display(),
+            'is_pending': submission.verdict == 'PE'
+        })
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        })
 
+# ============================
+# ADMIN VIEWS
+# ============================
 
 @login_required
 @user_passes_test(is_admin)
@@ -470,12 +334,10 @@ def admin_dashboard(request):
     
     return render(request, 'admin/dashboard.html', context)
 
-# In your core/views.py, replace the admin_add_problem function with this fixed version:
-
 @login_required
 @user_passes_test(is_admin)
 def admin_add_problem(request):
-    """Admin page to add new problems"""
+    """Admin page to add new problems with FIXED file handling"""
     if request.method == 'POST':
         try:
             # Get basic problem data
@@ -502,16 +364,16 @@ def admin_add_problem(request):
                 difficulty=difficulty
             )
             
-            # Handle manual test cases FIRST (these should be visible examples)
+            # Handle manual test cases (visible examples)
             test_case_count = 0
             created_visible_test_cases = 0
             
-            # Count how many manual test cases were submitted
+            # Count manual test cases
             for key in request.POST.keys():
                 if key.startswith('testcase_input_'):
                     test_case_count += 1
             
-            # Create manual test cases (these are the example cases, should be visible)
+            # Create manual test cases
             for i in range(1, test_case_count + 1):
                 input_key = f'testcase_input_{i}'
                 output_key = f'testcase_output_{i}'
@@ -528,60 +390,54 @@ def admin_add_problem(request):
                         problem=problem,
                         input=test_input,
                         output=test_output,
-                        is_hidden=is_hidden,  # Respect the manual setting
+                        is_hidden=is_hidden,
                         order=int(order)
                     )
                     if not is_hidden:
                         created_visible_test_cases += 1
             
-            # Handle file uploads for test cases (these should be HIDDEN)
+            # Handle file uploads (FIXED to save as separate files)
             input_file = request.FILES.get('input_file')
             output_file = request.FILES.get('output_file')
-            created_hidden_test_cases = 0
             
             if input_file and output_file:
-                # Read file contents
-                input_content = input_file.read().decode('utf-8')
-                output_content = output_file.read().decode('utf-8')
-                
-                # Split by double newlines OR single newlines based on content
-                # First try double newlines (preferred format)
-                if '\n\n' in input_content:
-                    inputs = [inp.strip() for inp in input_content.strip().split('\n\n') if inp.strip()]
-                else:
-                    # If no double newlines, split by single newlines (each line is a test case)
-                    inputs = [inp.strip() for inp in input_content.strip().split('\n') if inp.strip()]
-                
-                if '\n\n' in output_content:
-                    outputs = [out.strip() for out in output_content.strip().split('\n\n') if out.strip()]
-                else:
-                    outputs = [out.strip() for out in output_content.strip().split('\n') if out.strip()]
-                
-                if len(inputs) != len(outputs):
-                    messages.warning(request, f'File mismatch: {len(inputs)} inputs vs {len(outputs)} outputs. Only manual test cases will be used.')
-                else:
-                    # Create test cases from files - these should be HIDDEN
-                    starting_order = test_case_count + 1  # Start after manual test cases
-                    for i, (inp, out) in enumerate(zip(inputs, outputs)):
-                        TestCase.objects.create(
-                            problem=problem,
-                            input=inp,
-                            output=out,
-                            is_hidden=True,  # 🔧 FIXED: File uploads are now hidden!
-                            order=starting_order + i
-                        )
-                        created_hidden_test_cases += 1
-            
-            # Provide appropriate success message
-            if created_visible_test_cases > 0 and created_hidden_test_cases > 0:
-                messages.success(request, 
-                    f'Problem "{name}" created successfully with {created_visible_test_cases} visible example test cases and {created_hidden_test_cases} hidden test cases!')
-            elif created_visible_test_cases > 0:
-                messages.success(request, f'Problem "{name}" created successfully with {created_visible_test_cases} visible test cases!')
-            elif created_hidden_test_cases > 0:
-                messages.success(request, f'Problem "{name}" created successfully with {created_hidden_test_cases} hidden test cases!')
+                try:
+                    # Save files to inputs/ and outputs/ directories
+                    from django.conf import settings
+                    from pathlib import Path
+                    
+                    base_dir = Path(settings.BASE_DIR)
+                    inputs_dir = base_dir / "inputs"
+                    outputs_dir = base_dir / "outputs"
+                    
+                    # Create directories if they don't exist
+                    inputs_dir.mkdir(exist_ok=True)
+                    outputs_dir.mkdir(exist_ok=True)
+                    
+                    # Save input file
+                    input_path = inputs_dir / f"{short_code}.txt"
+                    with open(input_path, 'wb') as f:
+                        for chunk in input_file.chunks():
+                            f.write(chunk)
+                    
+                    # Save output file
+                    output_path = outputs_dir / f"{short_code}.txt"
+                    with open(output_path, 'wb') as f:
+                        for chunk in output_file.chunks():
+                            f.write(chunk)
+                    
+                    messages.success(request, 
+                        f'Problem "{name}" created successfully! '
+                        f'Files saved to {input_path.name} and {output_path.name}. '
+                        f'Created {created_visible_test_cases} visible test cases.')
+                    
+                except Exception as e:
+                    messages.warning(request, 
+                        f'Problem created but file saving failed: {str(e)}. '
+                        f'Created {created_visible_test_cases} visible test cases.')
             else:
-                messages.warning(request, 'Problem created but no test cases were added!')
+                messages.success(request, 
+                    f'Problem "{name}" created successfully with {created_visible_test_cases} visible test cases!')
             
             return redirect('core:admin_problems_list')
             
@@ -606,12 +462,22 @@ def admin_problems_list(request):
             Q(statement__icontains=search_query)
         )
     
-    problems = problems.order_by('-id')  # Latest first
+    problems = problems.order_by('-id')
+    
+    # Calculate difficulty counts
+    all_problems = Problem.objects.all()
+    easy_count = all_problems.filter(difficulty='E').count()
+    medium_count = all_problems.filter(difficulty='M').count()
+    hard_count = all_problems.filter(difficulty='H').count()
+    total_problems = all_problems.count()
     
     context = {
         'problems': problems,
         'search_query': search_query,
-        'total_problems': Problem.objects.count(),
+        'total_problems': total_problems,
+        'easy_count': easy_count,
+        'medium_count': medium_count,
+        'hard_count': hard_count,
     }
     
     return render(request, 'admin/problems_list.html', context)
@@ -630,14 +496,14 @@ def admin_edit_problem(request, short_code):
             problem.statement = request.POST.get('statement', '').strip()
             problem.difficulty = request.POST.get('difficulty', '')
             
-            # Check if short code conflicts with another problem
+            # Check if short code conflicts
             if Problem.objects.filter(short_code=problem.short_code).exclude(id=problem.id).exists():
                 messages.error(request, f'Another problem with short code "{problem.short_code}" already exists!')
                 return render(request, 'admin/edit_problem.html', {'problem': problem})
             
             problem.save()
             
-            # Update test cases - delete existing and recreate
+            # Update test cases
             problem.testcases.all().delete()
             
             test_case_count = 0
@@ -734,8 +600,8 @@ def admin_submissions_list(request):
     # Order by latest first
     submissions = submissions.order_by('-submitted')
     
-    # Pagination could be added here
-    submissions = submissions[:100]  # Limit to 100 for now
+    # Limit for performance
+    submissions = submissions[:100]
     
     # Calculate statistics
     total_submissions = Submission.objects.count()
@@ -767,3 +633,109 @@ def admin_submission_detail(request, submission_id):
     }
     
     return render(request, 'admin/submission_detail.html', context)
+
+@login_required
+@user_passes_test(is_admin)
+def admin_users_list(request):
+    """Admin page to view and manage all users"""
+    search_query = request.GET.get('search', '').strip()
+    
+    users = User.objects.all()
+    
+    if search_query:
+        users = users.filter(
+            Q(username__icontains=search_query) |
+            Q(email__icontains=search_query) |
+            Q(first_name__icontains=search_query) |
+            Q(last_name__icontains=search_query)
+        )
+    
+    users = users.order_by('-date_joined')
+    
+    # Calculate user statistics
+    total_users = User.objects.count()
+    active_users = User.objects.filter(last_login__gte=datetime.now() - timedelta(days=30)).count()
+    admin_users = User.objects.filter(Q(is_staff=True) | Q(is_superuser=True)).count()
+    
+    # Get users with submission counts
+    users_with_stats = users.annotate(
+        submission_count=Count('submission'),
+        accepted_count=Count('submission', filter=Q(submission__verdict='AC'))
+    )
+    
+    context = {
+        'users': users_with_stats[:50],
+        'search_query': search_query,
+        'total_users': total_users,
+        'active_users': active_users,
+        'admin_users': admin_users,
+    }
+    
+    return render(request, 'admin/users_list.html', context)
+
+@login_required
+@user_passes_test(is_admin)
+def admin_analytics(request):
+    """Admin page showing platform analytics"""
+    now = datetime.now()
+    last_week = now - timedelta(days=7)
+    last_month = now - timedelta(days=30)
+    
+    # Submission analytics
+    total_submissions = Submission.objects.count()
+    weekly_submissions = Submission.objects.filter(submitted__gte=last_week).count()
+    monthly_submissions = Submission.objects.filter(submitted__gte=last_month).count()
+    
+    # Problem analytics
+    total_problems = Problem.objects.count()
+    easy_problems = Problem.objects.filter(difficulty='E').count()
+    medium_problems = Problem.objects.filter(difficulty='M').count()
+    hard_problems = Problem.objects.filter(difficulty='H').count()
+    
+    # User analytics
+    total_users = User.objects.count()
+    active_users = User.objects.filter(last_login__gte=last_week).count()
+    new_users_this_month = User.objects.filter(date_joined__gte=last_month).count()
+    
+    # Verdict distribution
+    verdict_stats = Submission.objects.values('verdict').annotate(count=Count('verdict'))
+    
+    # Popular problems
+    popular_problems = Problem.objects.annotate(
+        submission_count=Count('submission')
+    ).order_by('-submission_count')[:10]
+    
+    # Daily submission trend
+    daily_submissions = []
+    for i in range(7):
+        day = now - timedelta(days=i)
+        day_start = day.replace(hour=0, minute=0, second=0, microsecond=0)
+        day_end = day_start + timedelta(days=1)
+        
+        count = Submission.objects.filter(
+            submitted__gte=day_start,
+            submitted__lt=day_end
+        ).count()
+        
+        daily_submissions.append({
+            'date': day.strftime('%Y-%m-%d'),
+            'count': count
+        })
+    
+    context = {
+        'total_submissions': total_submissions,
+        'weekly_submissions': weekly_submissions,
+        'monthly_submissions': monthly_submissions,
+        'total_problems': total_problems,
+        'easy_problems': easy_problems,
+        'medium_problems': medium_problems,
+        'hard_problems': hard_problems,
+        'total_users': total_users,
+        'active_users': active_users,
+        'new_users_this_month': new_users_this_month,
+        'verdict_stats': verdict_stats,
+        'popular_problems': popular_problems,
+        'daily_submissions': daily_submissions,
+    }
+    
+    return render(request, 'admin/analytics.html', context)

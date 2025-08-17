@@ -10,7 +10,8 @@ javac -version 2>/dev/null && echo "✅ Java compiler available" || echo "❌ Ja
 node --version 2>/dev/null && echo "✅ Node.js available" || echo "❌ Node.js missing"
 python3 --version 2>/dev/null && echo "✅ Python available" || echo "❌ Python missing"
 
-cd /app/oj_project/oj_project
+# FIXED: Correct path to manage.py
+cd /app/oj_project
 
 # Quick database check and migrate
 echo "🔄 Running migrations..."
