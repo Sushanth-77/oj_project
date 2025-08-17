@@ -773,7 +773,7 @@ def evaluate_submission(submission, language):
         return 'RE'
 
 def evaluate_file_test_cases_smart(submission, language):
-    """Render-optimized file test case evaluation with SMART test case parsing"""
+    """Render-optimized file test case evaluation with INDIVIDUAL test case execution"""
     try:
         problem = submission.problem
         
@@ -810,19 +810,20 @@ def evaluate_file_test_cases_smart(submission, language):
             logger.error("❌ Failed to parse any test cases")
             return 'RE'
         
-        logger.info(f"🎯 Successfully parsed {len(test_cases)} test cases, now executing...")
+        logger.info(f"🎯 Successfully parsed {len(test_cases)} test cases, now executing individually...")
         
-        # Execute all test cases
+        # Execute each test case INDIVIDUALLY
         for i, test_case in enumerate(test_cases, 1):
-            logger.info(f"🚀 Executing test case {i}/{len(test_cases)}")
+            logger.info(f"🚀 Executing test case {i}/{len(test_cases)} individually")
             
             # Render-optimized timeout
             timeout = 15 if language == 'cpp' else 12
             
+            # Run the code with ONLY this test case's input
             actual_output = code_runner.run_code(
                 language, 
                 submission.code_text, 
-                test_case['input'],
+                test_case['input'],  # Only this test case's input
                 timeout_override=timeout
             )
             
@@ -836,6 +837,9 @@ def evaluate_file_test_cases_smart(submission, language):
             
             if not smart_parser.detailed_comparison(expected, actual, i):
                 logger.error(f"❌ Test case {i} failed comparison")
+                logger.error(f"   Input: {test_case['input']}")
+                logger.error(f"   Expected: {repr(expected)}")
+                logger.error(f"   Got: {repr(actual)}")
                 return 'WA'
             
             logger.info(f"✅ Test case {i} passed")

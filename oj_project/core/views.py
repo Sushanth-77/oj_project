@@ -337,7 +337,7 @@ def admin_dashboard(request):
 @login_required
 @user_passes_test(is_admin)
 def admin_add_problem(request):
-    """Admin page to add new problems with FIXED file handling"""
+    """Admin page to add new problems with SMART TEST CASE PARSING from files"""
     if request.method == 'POST':
         try:
             # Get basic problem data
@@ -396,13 +396,15 @@ def admin_add_problem(request):
                     if not is_hidden:
                         created_visible_test_cases += 1
             
-            # Handle file uploads (FIXED to save as separate files)
+            # Handle file uploads with SMART PARSING
             input_file = request.FILES.get('input_file')
             output_file = request.FILES.get('output_file')
             
+            file_test_cases_created = 0
+            
             if input_file and output_file:
                 try:
-                    # Save files to inputs/ and outputs/ directories
+                    # Save files to inputs/ and outputs/ directories first
                     from django.conf import settings
                     from pathlib import Path
                     
@@ -413,6 +415,14 @@ def admin_add_problem(request):
                     # Create directories if they don't exist
                     inputs_dir.mkdir(exist_ok=True)
                     outputs_dir.mkdir(exist_ok=True)
+                    
+                    # Read file contents for parsing
+                    input_content = input_file.read().decode('utf-8', errors='replace')
+                    output_content = output_file.read().decode('utf-8', errors='replace')
+                    
+                    # Reset file pointers and save files
+                    input_file.seek(0)
+                    output_file.seek(0)
                     
                     # Save input file
                     input_path = inputs_dir / f"{short_code}.txt"
@@ -426,15 +436,49 @@ def admin_add_problem(request):
                         for chunk in output_file.chunks():
                             f.write(chunk)
                     
-                    messages.success(request, 
-                        f'Problem "{name}" created successfully! '
-                        f'Files saved to {input_path.name} and {output_path.name}. '
-                        f'Created {created_visible_test_cases} visible test cases.')
+                    # Use Smart Parser to parse the test cases from files
+                    from compiler.views import SmartTestCaseParser
+                    parser = SmartTestCaseParser()
+                    
+                    logger.info(f"📁 Parsing test cases from uploaded files for {short_code}")
+                    logger.info(f"Input content length: {len(input_content)}")
+                    logger.info(f"Output content length: {len(output_content)}")
+                    
+                    parsed_test_cases = parser.parse_test_cases(input_content, output_content)
+                    
+                    if parsed_test_cases:
+                        logger.info(f"🎯 Smart Parser found {len(parsed_test_cases)} test cases")
+                        
+                        # Create hidden test cases from parsed data
+                        for i, test_case in enumerate(parsed_test_cases, 1):
+                            TestCase.objects.create(
+                                problem=problem,
+                                input=test_case['input'],
+                                output=test_case['output'],
+                                is_hidden=True,  # File-based test cases are hidden by default
+                                order=created_visible_test_cases + i  # Order after manual test cases
+                            )
+                            file_test_cases_created += 1
+                        
+                        logger.info(f"✅ Created {file_test_cases_created} hidden test cases from files")
+                        
+                        messages.success(request, 
+                            f'Problem "{name}" created successfully! '
+                            f'📁 Files saved and parsed: {len(parsed_test_cases)} hidden test cases created. '
+                            f'📝 Manual test cases: {created_visible_test_cases} visible. '
+                            f'🎯 Total: {created_visible_test_cases + file_test_cases_created} test cases.')
+                    else:
+                        logger.warning(f"⚠️ Smart Parser could not parse test cases from files")
+                        messages.warning(request, 
+                            f'Problem created and files saved, but no test cases could be parsed from files. '
+                            f'Created {created_visible_test_cases} visible test cases from manual input. '
+                            f'You may need to check the file format.')
                     
                 except Exception as e:
+                    logger.error(f"💥 Error processing files: {str(e)}")
                     messages.warning(request, 
-                        f'Problem created but file saving failed: {str(e)}. '
-                        f'Created {created_visible_test_cases} visible test cases.')
+                        f'Problem created with {created_visible_test_cases} manual test cases, '
+                        f'but file processing failed: {str(e)}')
             else:
                 messages.success(request, 
                     f'Problem "{name}" created successfully with {created_visible_test_cases} visible test cases!')
@@ -442,6 +486,7 @@ def admin_add_problem(request):
             return redirect('core:admin_problems_list')
             
         except Exception as e:
+            logger.error(f"💥 Error creating problem: {str(e)}")
             messages.error(request, f'Error creating problem: {str(e)}')
             return render(request, 'admin/add_problem.html')
     
