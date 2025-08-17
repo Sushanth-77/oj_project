@@ -676,10 +676,15 @@ int main() {{
         """Wrap JavaScript code to handle multiple test cases automatically"""
         logger.info(f"🔧 Wrapping JavaScript code for {len(test_cases)} test cases")
         
+        # Prepare test case data without f-string backslashes
+        test_case_inputs = [case['input'].split('\n') for case in test_cases]
+        test_cases_json = json.dumps(test_case_inputs)
+        indented_user_code = AutoTestCaseWrapper._indent_code(user_code, "        ")
+        
         # Create a wrapper that provides readline() function for each test case
         wrapper_code = f'''
 // Test cases data
-const testCases = {json.dumps([case['input'].split('\\n') for case in test_cases])};
+const testCases = {test_cases_json};
 
 // Process each test case
 testCases.forEach((testCase, index) => {{
@@ -692,7 +697,7 @@ testCases.forEach((testCase, index) => {{
     
     // Execute user's code
     (() => {{
-{AutoTestCaseWrapper._indent_code(user_code, "        ")}
+{indented_user_code}
     }})();
     
     console.log(); // Ensure newline between test cases
