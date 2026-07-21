@@ -1,0 +1,359 @@
+.adminBody {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: #0f1419;
+    color: #ffffff;
+    min-height: 100vh;
+    display: flex;
+}
+
+.sidebar {
+    position: fixed;
+    left: 0;
+    top: 0;
+    width: 280px;
+    height: 100vh;
+    background: linear-gradient(180deg, #1a1f29 0%, #0f1419 100%);
+    border-right: 1px solid #2d3748;
+    z-index: 1000;
+}
+
+.logo {
+    padding: 30px 25px;
+    border-bottom: 1px solid #2d3748;
+}
+
+.logo h2 {
+    color: #00d4aa;
+    font-size: 24px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 0;
+}
+
+.logo span {
+    font-size: 28px;
+}
+
+.navMenu {
+    padding: 20px 0;
+}
+
+.navItem {
+    display: block;
+    padding: 15px 25px;
+    color: #a0aec0;
+    text-decoration: none;
+    transition: all 0.3s ease;
+    border-left: 4px solid transparent;
+}
+
+.navItem:hover,
+.navItemActive {
+    background: rgba(0, 212, 170, 0.1);
+    color: #00d4aa;
+    border-left-color: #00d4aa;
+}
+
+.navItem i {
+    width: 20px;
+    margin-right: 15px;
+    text-align: center;
+    font-style: normal;
+}
+
+.mainContent {
+    margin-left: 280px;
+    min-height: 100vh;
+    background: #0f1419;
+    flex: 1;
+}
+
+.header {
+    background: #1a1f29;
+    border-bottom: 1px solid #2d3748;
+    padding: 20px 40px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+}
+
+.headerTitle {
+    font-size: 28px;
+    font-weight: 700;
+    color: #ffffff;
+    margin: 0;
+}
+
+.headerActions {
+    display: flex;
+    gap: 15px;
+    align-items: center;
+}
+
+.btn {
+    padding: 10px 20px;
+    border: none;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 14px;
+}
+
+.btnPrimary {
+    background: linear-gradient(135deg, #00d4aa, #00b894);
+    color: white;
+}
+
+.btnPrimary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 25px rgba(0, 212, 170, 0.3);
+    color: white;
+}
+
+.btnSecondary {
+    background: #2d3748;
+    color: #a0aec0;
+    border: 1px solid #4a5568;
+}
+
+.btnSecondary:hover {
+    background: #4a5568;
+    color: white;
+}
+
+.dashboardContent {
+    padding: 40px;
+}
+
+.statsGrid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 25px;
+    margin-bottom: 40px;
+}
+
+.statCard {
+    background: linear-gradient(135deg, #1a1f29 0%, #2d3748 100%);
+    border: 1px solid #2d3748;
+    border-radius: 15px;
+    padding: 30px;
+    transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+.statCard::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: linear-gradient(90deg, #00d4aa, #00b894);
+}
+
+.statCard:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+    border-color: #00d4aa;
+}
+
+.statIcon {
+    font-size: 40px;
+    margin-bottom: 15px;
+    display: block;
+}
+
+.statNumber {
+    font-size: 36px;
+    font-weight: 800;
+    color: #00d4aa;
+    margin-bottom: 8px;
+    display: block;
+}
+
+.statLabel {
+    color: #a0aec0;
+    font-size: 16px;
+    font-weight: 500;
+}
+
+.quickActions {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 20px;
+    margin-bottom: 40px;
+}
+
+.actionCard {
+    background: linear-gradient(135deg, #2d3748, #1a1f29);
+    border: 1px solid #4a5568;
+    border-radius: 12px;
+    padding: 25px;
+    text-align: center;
+    transition: all 0.3s ease;
+    cursor: pointer;
+    text-decoration: none;
+    color: inherit;
+    display: block;
+}
+
+.actionCard:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 15px 30px rgba(0, 0, 0, 0.2);
+    border-color: #00d4aa;
+}
+
+.actionIcon {
+    font-size: 32px;
+    margin-bottom: 15px;
+    color: #00d4aa;
+}
+
+.actionTitle {
+    color: #ffffff;
+    font-weight: 600;
+    margin-bottom: 8px;
+}
+
+.actionDesc {
+    color: #a0aec0;
+    font-size: 14px;
+}
+
+.recentActivity {
+    background: #1a1f29;
+    border: 1px solid #2d3748;
+    border-radius: 15px;
+    padding: 30px;
+    margin-bottom: 30px;
+}
+
+.sectionHeader {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 25px;
+    padding-bottom: 15px;
+    border-bottom: 2px solid #2d3748;
+}
+
+.sectionTitle {
+    font-size: 24px;
+    font-weight: 700;
+    color: #ffffff;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin: 0;
+}
+
+.activityItem {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    padding: 15px 0;
+    border-bottom: 1px solid #2d3748;
+}
+
+.activityItem:last-child {
+    border-bottom: none;
+}
+
+.activityIcon {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+}
+
+.activityIconSuccess {
+    background: rgba(76, 175, 80, 0.2);
+    color: #4caf50;
+}
+
+.activityIconDanger {
+    background: rgba(244, 67, 54, 0.2);
+    color: #f44336;
+}
+
+.activityIconInfo {
+    background: rgba(33, 150, 243, 0.2);
+    color: #2196f3;
+}
+
+.activityContent {
+    flex: 1;
+}
+
+.activityTitle {
+    color: #ffffff;
+    font-weight: 600;
+    margin-bottom: 5px;
+}
+
+.activityDesc {
+    color: #a0aec0;
+    font-size: 14px;
+}
+
+.activityTime {
+    color: #a0aec0;
+    font-size: 12px;
+    white-space: nowrap;
+}
+
+/* User Menu */
+.userMenu {
+    position: relative;
+}
+
+.userAvatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #00d4aa, #00b894);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.notificationDot {
+    position: absolute;
+    top: -2px;
+    right: -2px;
+    width: 12px;
+    height: 12px;
+    background: #f44336;
+    border-radius: 50%;
+    border: 2px solid #1a1f29;
+}
+
+.alert {
+    padding: 15px 20px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    border-left: 4px solid;
+}
+
+.alertInfo {
+    background: rgba(33, 150, 243, 0.1);
+    border-color: #2196f3;
+    color: #2196f3;
+}

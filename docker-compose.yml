@@ -1,0 +1,11 @@
+services:
+  nextjs-frontend:
+    build:
+      context: ./nextjs-app
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    env_file:
+      - ./nextjs-app/.env
+    restart: unless-stopped
+

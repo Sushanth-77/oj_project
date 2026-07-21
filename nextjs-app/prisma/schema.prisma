@@ -1,0 +1,106 @@
+// prisma/schema.prisma
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "linux-musl-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String       @id @default(cuid())
+  email         String       @unique
+  name          String?
+  image         String?
+  emailVerified DateTime?
+  isAdmin       Boolean      @default(false)
+  createdAt     DateTime     @default(now())
+  lastLogin     DateTime?
+  submissions   Submission[]
+  accounts      Account[]
+  sessions      Session[]
+
+  @@map("users")
+}
+
+model Problem {
+  id          Int          @id @default(autoincrement())
+  name        String
+  shortCode   String       @unique
+  statement   String
+  difficulty  String // 'E', 'M', 'H'
+  createdAt   DateTime     @default(now())
+  testCases   TestCase[]
+  submissions Submission[]
+
+  @@map("problems")
+}
+
+model TestCase {
+  id        Int     @id @default(autoincrement())
+  problemId Int
+  input     String
+  output    String
+  isHidden  Boolean @default(false)
+  order     Int     @default(1)
+  problem   Problem @relation(fields: [problemId], references: [id], onDelete: Cascade)
+
+  @@map("test_cases")
+}
+
+model Submission {
+  id        Int      @id @default(autoincrement())
+  problemId Int
+  userId    String
+  codeText  String
+  language  String   @default("py") // 'py', 'cpp', 'c', 'java', 'js'
+  verdict   String   @default("PE") // AC, WA, TLE, RE, CE, PE, IE
+  submitted DateTime @default(now())
+  problem   Problem  @relation(fields: [problemId], references: [id])
+  user      User     @relation(fields: [userId], references: [id])
+
+  @@index([userId, problemId])
+  @@index([problemId, verdict])
+  @@map("submissions")
+}
+
+// Required by NextAuth Prisma Adapter
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@map("accounts")
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+  @@map("verification_tokens")
+}
