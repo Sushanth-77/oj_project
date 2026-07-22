@@ -6,7 +6,7 @@ import { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { Play, RotateCcw, Sparkles, ArrowLeft, Terminal } from "lucide-react";
+import { Play, RotateCcw, Sparkles, ArrowLeft, Terminal, Tag } from "lucide-react";
 import { CodeEditor } from "@/components/editor/CodeEditor";
 import { VerdictBadge } from "@/components/ui/VerdictBadge";
 import { Problem, TestCase, Verdict } from "@/types";
@@ -175,7 +175,30 @@ export default function ProblemDetail() {
           </span>
         </div>
 
-        <div className="prose max-w-none prose-invert">
+        {/* Problem statement — explicit white text to avoid prose color conflicts */}
+        <div
+          className="
+            text-gray-200 leading-relaxed
+            [&_h1]:text-white [&_h1]:font-bold [&_h1]:text-2xl [&_h1]:mt-6 [&_h1]:mb-3
+            [&_h2]:text-white [&_h2]:font-bold [&_h2]:text-xl  [&_h2]:mt-6 [&_h2]:mb-3
+            [&_h3]:text-white [&_h3]:font-bold [&_h3]:text-lg  [&_h3]:mt-4 [&_h3]:mb-2
+            [&_p]:text-gray-200 [&_p]:mb-3
+            [&_ul]:list-disc [&_ul]:pl-5 [&_ul]:text-gray-200 [&_ul]:mb-3
+            [&_ol]:list-decimal [&_ol]:pl-5 [&_ol]:text-gray-200 [&_ol]:mb-3
+            [&_li]:mb-1
+            [&_strong]:text-white [&_strong]:font-semibold
+            [&_em]:text-gray-300
+            [&_code]:bg-[#2d3748] [&_code]:text-[#00d4aa] [&_code]:px-1.5 [&_code]:py-0.5 [&_code]:rounded [&_code]:text-sm [&_code]:font-mono
+            [&_pre]:bg-[#0f1419] [&_pre]:border [&_pre]:border-[#2d3748] [&_pre]:rounded-lg [&_pre]:p-4 [&_pre]:overflow-x-auto [&_pre]:my-4
+            [&_pre_code]:bg-transparent [&_pre_code]:text-gray-200 [&_pre_code]:p-0
+            [&_blockquote]:border-l-4 [&_blockquote]:border-[#00d4aa] [&_blockquote]:pl-4 [&_blockquote]:text-gray-400 [&_blockquote]:italic
+            [&_a]:text-[#00d4aa] [&_a]:hover:underline
+            [&_hr]:border-[#2d3748] [&_hr]:my-6
+            [&_table]:w-full [&_table]:text-sm
+            [&_th]:text-left [&_th]:text-gray-400 [&_th]:border-b [&_th]:border-[#2d3748] [&_th]:pb-2
+            [&_td]:text-gray-200 [&_td]:py-2 [&_td]:border-b [&_td]:border-[#2d3748]/50
+          "
+        >
           <ReactMarkdown remarkPlugins={[remarkGfm]}>
             {problem.statement}
           </ReactMarkdown>
@@ -196,6 +219,26 @@ export default function ProblemDetail() {
                 </div>
               </div>
             ))}
+          </div>
+        )}
+
+        {/* Topic Tags — shown below sample test cases */}
+        {problem.topics && problem.topics.length > 0 && (
+          <div className="mt-6 pt-5 border-t border-[#2d3748]">
+            <div className="flex items-center gap-2 mb-3">
+              <Tag className="w-3.5 h-3.5 text-gray-500" />
+              <span className="text-xs text-gray-500 uppercase tracking-wider font-semibold">Topics</span>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {problem.topics.map((topic: string) => (
+                <span
+                  key={topic}
+                  className="inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-full bg-[#00d4aa]/10 text-[#00d4aa] border border-[#00d4aa]/25 font-medium"
+                >
+                  {topic}
+                </span>
+              ))}
+            </div>
           </div>
         )}
       </div>
