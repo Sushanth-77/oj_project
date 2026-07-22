@@ -5,15 +5,25 @@ export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     const search = searchParams.get("search");
+    const topic = searchParams.get("topic");
 
-    let whereClause = {};
+    let whereClause: Record<string, unknown> = {};
+
     if (search) {
       whereClause = {
+        ...whereClause,
         OR: [
           { name: { contains: search, mode: "insensitive" } },
           { statement: { contains: search, mode: "insensitive" } },
           { shortCode: { contains: search, mode: "insensitive" } },
         ],
+      };
+    }
+
+    if (topic) {
+      whereClause = {
+        ...whereClause,
+        topics: { has: topic },
       };
     }
 
@@ -26,6 +36,7 @@ export async function GET(request: Request) {
         shortCode: true,
         difficulty: true,
         statement: true,
+        topics: true,
       },
     });
 

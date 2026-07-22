@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
-import { PlusCircle, Trash2, Save, ArrowLeft, Eye, Edit3 } from "lucide-react";
+import { Save, ArrowLeft, Eye, Edit3, Tag, Sparkles } from "lucide-react";
 import Link from "next/link";
 import { z } from "zod";
 import { createProblemSchema } from "@/lib/validations";
@@ -26,6 +26,7 @@ export default function AdminAddProblem() {
 
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [previewMode, setPreviewMode] = useState(false);
+  const [generatedTags, setGeneratedTags] = useState<string[]>([]);
 
   const mutation = useMutation({
     mutationFn: async (data: ProblemFormData) => {
@@ -40,9 +41,15 @@ export default function AdminAddProblem() {
       }
       return res.json();
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["adminProblems"] });
-      router.push("/admin/problems");
+      if (data?.topics?.length > 0) {
+        setGeneratedTags(data.topics);
+        // Redirect after a short delay so user can see the tags
+        setTimeout(() => router.push("/admin/problems"), 2500);
+      } else {
+        router.push("/admin/problems");
+      }
     },
     onError: (error: Error) => {
       setErrors({ submit: error.message });
@@ -127,6 +134,26 @@ export default function AdminAddProblem() {
       </div>
 
       <div className="bg-[#1a1f29] rounded-[15px] border border-[#2d3748] p-8">
+        {/* AI Tags success banner */}
+        {generatedTags.length > 0 && (
+          <div className="mb-6 bg-[#00d4aa]/10 border border-[#00d4aa]/40 rounded-lg p-4 flex flex-col gap-2">
+            <div className="flex items-center gap-2">
+              <Sparkles className="w-4 h-4 text-[#00d4aa]" />
+              <span className="text-[#00d4aa] font-semibold text-sm">AI Auto-tagged! Redirecting...</span>
+            </div>
+            <div className="flex flex-wrap gap-2 mt-1">
+              {generatedTags.map((tag) => (
+                <span
+                  key={tag}
+                  className="flex items-center gap-1 text-xs px-2.5 py-1 rounded-full bg-[#00d4aa]/15 text-[#00d4aa] border border-[#00d4aa]/30"
+                >
+                  <Tag className="w-3 h-3" />
+                  {tag}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
         <form onSubmit={handleSubmit} className="space-y-6">
           {errors.submit && (
             <div className="bg-red-500/10 border border-red-500 text-red-500 p-4 rounded-md">

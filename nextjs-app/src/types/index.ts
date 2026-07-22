@@ -15,6 +15,7 @@ export interface Problem {
   shortCode: string;
   statement: string;
   difficulty: "E" | "M" | "H";
+  topics: string[];
   createdAt: Date;
   testCases?: TestCase[];
 }

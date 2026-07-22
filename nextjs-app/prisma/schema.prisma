@@ -31,6 +31,7 @@ model Problem {
   shortCode   String       @unique
   statement   String
   difficulty  String // 'E', 'M', 'H'
+  topics      String[]     @default([])
   createdAt   DateTime     @default(now())
   testCases   TestCase[]
   submissions Submission[]

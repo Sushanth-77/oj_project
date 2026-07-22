@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { createProblemSchema } from "@/lib/validations";
+import { getTopicTags } from "@/lib/groq";
 
 export async function GET(request: Request) {
   try {
@@ -49,12 +50,16 @@ export async function POST(request: Request) {
       );
     }
 
+    // Auto-generate topic tags via Groq AI (non-blocking on failure)
+    const topics = await getTopicTags(result.data.name, result.data.statement);
+
     const problem = await prisma.problem.create({
       data: {
         name: result.data.name,
         shortCode: result.data.shortCode,
         statement: result.data.statement,
         difficulty: result.data.difficulty,
+        topics,
         testCases: {
           create: result.data.testCases,
         },
@@ -131,10 +136,16 @@ export async function DELETE(request: Request) {
         if (!id) {
             return NextResponse.json({ error: "Problem ID required" }, { status: 400 });
         }
+
+        const problemId = parseInt(id);
     
-        await prisma.problem.delete({
-            where: { id: parseInt(id) },
-        });
+        // Use a transaction: delete submissions first (no cascade in schema),
+        // then test cases, then the problem itself.
+        await prisma.$transaction([
+          prisma.submission.deleteMany({ where: { problemId } }),
+          prisma.testCase.deleteMany({ where: { problemId } }),
+          prisma.problem.delete({ where: { id: problemId } }),
+        ]);
     
         return new NextResponse(null, { status: 204 });
       } catch (error) {
