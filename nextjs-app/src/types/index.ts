@@ -16,6 +16,7 @@ export interface Problem {
   statement: string;
   difficulty: "E" | "M" | "H";
   topics: string[];
+  templates?: Record<string, string> | null;
   createdAt: Date;
   testCases?: TestCase[];
 }
@@ -56,4 +57,69 @@ export interface EvaluateResult {
     actual?: string;
     error?: string;
   };
+}
+
+// ─── New Feature Types ───────────────────────────────────────────────────────
+
+export interface Badge {
+  slug: string;
+  name: string;
+  description: string;
+  icon: string;
+  awardedAt?: Date;
+}
+
+export interface Streak {
+  currentStreak: number;
+  longestStreak: number;
+  lastSolvedDate?: Date | null;
+}
+
+export interface LeaderboardEntry {
+  rank: number;
+  userId: string;
+  name: string | null;
+  email: string;
+  image: string | null;
+  totalSolved: number;
+  score: number;
+  easyCount: number;
+  mediumCount: number;
+  hardCount: number;
+}
+
+export interface ProblemStats {
+  total: number;
+  accepted: number;
+  acceptanceRate: number;
+  languageBreakdown: { language: string; count: number }[];
+}
+
+export interface ProfileData {
+  user: {
+    id: string;
+    name: string | null;
+    email: string | null;
+    image: string | null;
+    createdAt: Date;
+  };
+  stats: {
+    totalSolved: number;
+    easyCount: number;
+    mediumCount: number;
+    hardCount: number;
+    totalProblems: number;
+    score: number;
+    currentStreak: number;
+    longestStreak: number;
+  };
+  badges: Badge[];
+  heatmap: Record<string, number>;
+  recentSubmissions: {
+    id: number;
+    verdict: Verdict;
+    language: string;
+    submitted: Date;
+    problem: { name: string; shortCode: string; difficulty: string };
+  }[];
 }

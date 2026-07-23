@@ -96,3 +96,45 @@ Output:`;
   }
 }
 
+export async function getAIHint(
+  problemStatement: string,
+  currentCode: string,
+  language: string,
+  hintLevel: 1 | 2 | 3
+): Promise<{ success: boolean; hint?: string; error?: string }> {
+  try {
+    const levelDescriptions: Record<number, string> = {
+      1: "Give a high-level conceptual hint. Do NOT mention specific algorithms or code. Just guide their thinking about what the problem is asking. 2-3 sentences max.",
+      2: "Give an algorithmic hint. Mention the type of data structure or algorithm that could work (e.g., 'think about using a hash map' or 'a sliding window might help here'). Do NOT give code. 3-4 sentences max.",
+      3: "Give a near-solution hint. Describe the key steps of the solution approach in plain English. You may mention pseudocode but do NOT write actual code. 4-5 sentences max.",
+    };
+
+    const hasCode = currentCode.trim().length > 50;
+
+    const prompt = `You are a helpful coding mentor helping a student solve a programming problem.
+
+Problem Statement:
+${problemStatement}
+
+${hasCode ? `Student's Current Code (${language}):\n\`\`\`${language}\n${currentCode.slice(0, 800)}\n\`\`\`` : "The student hasn't written much code yet."}
+
+Hint Level ${hintLevel}/3: ${levelDescriptions[hintLevel]}
+
+Important rules:
+- Be encouraging and Socratic — guide, don't solve
+- Do NOT write actual code
+- Keep the response concise and focused
+- Format using Markdown (bold key terms)`;
+
+    const chatCompletion = await groq.chat.completions.create({
+      messages: [{ role: "user", content: prompt }],
+      model: "llama-3.1-8b-instant",
+    });
+
+    const text = chatCompletion.choices[0]?.message?.content || "";
+    return { success: true, hint: text };
+  } catch (error) {
+    console.error("Groq Hint Error:", error);
+    return { success: false, error: "Failed to generate hint. Please try again." };
+  }
+}

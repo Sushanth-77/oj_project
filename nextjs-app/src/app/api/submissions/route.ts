@@ -5,6 +5,7 @@ import { submissionSchema } from "@/lib/validations";
 import { executeCode } from "@/lib/piston";
 import { evaluateExecution } from "@/lib/judge";
 import { Verdict } from "@/types";
+import { processAcSubmission, seedBadges } from "@/lib/badges";
 
 export async function GET(request: Request) {
   try {
@@ -117,10 +118,22 @@ export async function POST(request: Request) {
       data: { verdict: finalVerdict },
     });
 
+    // Award badges & update streak on AC
+    let newlyAwardedBadges: string[] = [];
+    if (finalVerdict === "AC") {
+      try {
+        await seedBadges(); // Ensure badge definitions exist (idempotent)
+        newlyAwardedBadges = await processAcSubmission(session.user.id!);
+      } catch (badgeError) {
+        console.error("Badge processing error (non-fatal):", badgeError);
+      }
+    }
+
     return NextResponse.json({ 
       id: updatedSubmission.id, 
       verdict: updatedSubmission.verdict,
       errorDetail: finalErrorDetail,
+      newBadges: newlyAwardedBadges,
     });
 
   } catch (error) {
