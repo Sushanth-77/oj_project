@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useSession, signOut } from "next-auth/react";
 import { usePathname } from "next/navigation";
-import { Code, ChevronDown, History, LogOut } from "lucide-react";
+import { Code, ChevronDown, History, LogOut, Trophy, User } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 
 export function Header() {
@@ -30,6 +30,19 @@ export function Header() {
     return null;
   }
 
+  const navLink = (href: string, label: string) => (
+    <Link
+      href={href}
+      className={`${
+        pathname.startsWith(href)
+          ? "text-[#00d4aa] border-b-2 border-[#00d4aa]"
+          : "text-gray-300 hover:text-white"
+      } px-1 py-5 text-sm font-medium transition-colors`}
+    >
+      {label}
+    </Link>
+  );
+
   return (
     <header className="sticky top-0 z-50 bg-[#1a1f29] border-b border-[#2d3748] shadow-sm">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -41,28 +54,9 @@ export function Header() {
             </Link>
 
             <nav className="hidden md:flex ml-10 space-x-8">
-              <Link
-                href="/problems"
-                className={`${
-                  pathname.startsWith("/problems")
-                    ? "text-[#00d4aa] border-b-2 border-[#00d4aa]"
-                    : "text-gray-300 hover:text-white"
-                } px-1 py-5 text-sm font-medium`}
-              >
-                Problems
-              </Link>
-              {session && (
-                <Link
-                  href="/submissions"
-                  className={`${
-                    pathname === "/submissions"
-                      ? "text-[#00d4aa] border-b-2 border-[#00d4aa]"
-                      : "text-gray-300 hover:text-white"
-                  } px-1 py-5 text-sm font-medium`}
-                >
-                  My Submissions
-                </Link>
-              )}
+              {navLink("/problems", "Problems")}
+              {navLink("/leaderboard", "Leaderboard")}
+              {session && navLink("/submissions", "My Submissions")}
             </nav>
 
             {session?.user?.isAdmin && (
@@ -90,20 +84,37 @@ export function Header() {
                 </button>
 
                 {dropdownOpen && (
-                  <div className="absolute right-0 mt-2 w-48 rounded-md shadow-lg bg-[#2d3748] ring-1 ring-black ring-opacity-5 py-1">
+                  <div className="absolute right-0 mt-2 w-52 rounded-md shadow-lg bg-[#2d3748] ring-1 ring-black ring-opacity-5 py-1">
                     <Link
-                      href="/submissions"
-                      className="block px-4 py-2 text-sm text-gray-200 hover:bg-[#1a1f29]"
+                      href={`/profile/${session.user?.id}`}
+                      className="flex items-center px-4 py-2 text-sm text-gray-200 hover:bg-[#1a1f29]"
                       onClick={() => setDropdownOpen(false)}
                     >
-                      <History className="h-4 w-4 inline-block mr-2" />
+                      <User className="h-4 w-4 mr-2" />
+                      My Profile
+                    </Link>
+                    <Link
+                      href="/submissions"
+                      className="flex items-center px-4 py-2 text-sm text-gray-200 hover:bg-[#1a1f29]"
+                      onClick={() => setDropdownOpen(false)}
+                    >
+                      <History className="h-4 w-4 mr-2" />
                       My Submissions
                     </Link>
+                    <Link
+                      href="/leaderboard"
+                      className="flex items-center px-4 py-2 text-sm text-gray-200 hover:bg-[#1a1f29]"
+                      onClick={() => setDropdownOpen(false)}
+                    >
+                      <Trophy className="h-4 w-4 mr-2" />
+                      Leaderboard
+                    </Link>
+                    <div className="border-t border-[#1a1f29] my-1" />
                     <button
                       onClick={() => signOut({ callbackUrl: "/login" })}
-                      className="block w-full text-left px-4 py-2 text-sm text-gray-200 hover:bg-[#1a1f29]"
+                      className="flex items-center w-full text-left px-4 py-2 text-sm text-gray-200 hover:bg-[#1a1f29]"
                     >
-                      <LogOut className="h-4 w-4 inline-block mr-2" />
+                      <LogOut className="h-4 w-4 mr-2" />
                       Logout
                     </button>
                   </div>
