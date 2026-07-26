@@ -27,6 +27,8 @@ export default function AdminAddProblem() {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [previewMode, setPreviewMode] = useState(false);
   const [generatedTags, setGeneratedTags] = useState<string[]>([]);
+  const [templates, setTemplates] = useState({ python: "", cpp: "", c: "" });
+  const [showTemplates, setShowTemplates] = useState(false);
 
   const mutation = useMutation({
     mutationFn: async (data: ProblemFormData) => {
@@ -61,7 +63,12 @@ export default function AdminAddProblem() {
     try {
       createProblemSchema.parse(formData);
       setErrors({});
-      mutation.mutate(formData);
+      // Build templates object (only include non-empty ones)
+      const tmpl: Record<string, string> = {};
+      if (templates.python.trim()) tmpl.python = templates.python;
+      if (templates.cpp.trim()) tmpl.cpp = templates.cpp;
+      if (templates.c.trim()) tmpl.c = templates.c;
+      mutation.mutate({ ...formData, templates: Object.keys(tmpl).length > 0 ? tmpl : undefined } as any);
     } catch (error: any) {
       if (error instanceof z.ZodError) {
         const newErrors: Record<string, string> = {};
@@ -278,6 +285,37 @@ export default function AdminAddProblem() {
                     </div>
                   </div>
                 </div>
+              </div>
+            )}
+          </div>
+
+          {/* Code Templates (optional) */}
+          <div className="border border-[#2d3748] rounded-lg overflow-hidden">
+            <button
+              type="button"
+              onClick={() => setShowTemplates(!showTemplates)}
+              className="w-full flex items-center justify-between px-4 py-3 bg-[#0f1419] text-sm text-gray-400 hover:text-white transition-colors"
+            >
+              <span className="font-medium">⌨️ Custom Code Templates (optional)</span>
+              <span className="text-xs text-gray-600">{showTemplates ? "▲ Hide" : "▼ Show"}</span>
+            </button>
+            {showTemplates && (
+              <div className="p-4 space-y-4">
+                <p className="text-xs text-gray-500">Override the default boilerplate for this problem. Leave blank to use the global default.</p>
+                {(["python", "cpp", "c"] as const).map((lang) => (
+                  <div key={lang}>
+                    <label className="block text-gray-400 text-xs font-semibold uppercase mb-1">
+                      {lang === "python" ? "Python 3" : lang === "cpp" ? "C++" : "C"}
+                    </label>
+                    <textarea
+                      value={templates[lang]}
+                      onChange={(e) => setTemplates(prev => ({ ...prev, [lang]: e.target.value }))}
+                      placeholder={`Default ${lang} boilerplate…`}
+                      rows={4}
+                      className="w-full bg-[#0f1419] border border-[#4a5568] rounded-md p-3 text-sm text-gray-200 font-mono focus:outline-none focus:border-[#00d4aa] placeholder-gray-700"
+                    />
+                  </div>
+                ))}
               </div>
             )}
           </div>

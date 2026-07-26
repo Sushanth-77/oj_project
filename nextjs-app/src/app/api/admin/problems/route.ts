@@ -53,6 +53,9 @@ export async function POST(request: Request) {
     // Auto-generate topic tags via Groq AI (non-blocking on failure)
     const topics = await getTopicTags(result.data.name, result.data.statement);
 
+    // Extract optional templates from raw JSON (not in schema, so read from json directly)
+    const templates = json.templates && typeof json.templates === "object" ? json.templates : undefined;
+
     const problem = await prisma.problem.create({
       data: {
         name: result.data.name,
@@ -60,6 +63,7 @@ export async function POST(request: Request) {
         statement: result.data.statement,
         difficulty: result.data.difficulty,
         topics,
+        templates,
         testCases: {
           create: result.data.testCases,
         },
@@ -99,6 +103,8 @@ export async function PUT(request: Request) {
         );
       }
   
+      const templates = json.templates && typeof json.templates === "object" ? json.templates : null;
+
       const problem = await prisma.problem.update({
         where: { id: parseInt(id) },
         data: {
@@ -106,7 +112,7 @@ export async function PUT(request: Request) {
           shortCode: result.data.shortCode,
           statement: result.data.statement,
           difficulty: result.data.difficulty,
-          // For simplicity in this migration, we delete old test cases and recreate them
+          templates: templates ?? undefined,
           testCases: {
               deleteMany: {},
               create: result.data.testCases,
