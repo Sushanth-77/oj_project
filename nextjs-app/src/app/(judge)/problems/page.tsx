@@ -3,7 +3,7 @@
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { useState, useMemo } from "react";
-import { Search, ChevronRight, X, CheckCircle2, Tag } from "lucide-react";
+import { Search, ChevronRight, X, CheckCircle2, Tag, Bookmark } from "lucide-react";
 import { useSession } from "next-auth/react";
 import { Problem } from "@/types";
 
@@ -19,6 +19,7 @@ export default function ProblemsPage() {
   const [search, setSearch] = useState("");
   const [difficultyFilter, setDifficultyFilter] = useState<DifficultyFilter>("ALL");
   const [selectedTopics, setSelectedTopics] = useState<string[]>([]);
+  const [showBookmarks, setShowBookmarks] = useState(false);
   const { data: session } = useSession();
 
   const isNumberSearch = search.startsWith("#");
@@ -53,6 +54,22 @@ export default function ProblemsPage() {
     [solvedData]
   );
 
+  // Fetch bookmarked problems (only when logged in)
+  const { data: bookmarkedProblems } = useQuery<Problem[]>({
+    queryKey: ["bookmarks"],
+    queryFn: async () => {
+      const res = await fetch("/api/bookmarks");
+      if (!res.ok) return [];
+      return res.json();
+    },
+    enabled: !!session,
+    staleTime: 30_000,
+  });
+  const bookmarkSet = useMemo(
+    () => new Set((bookmarkedProblems ?? []).map((p) => p.id)),
+    [bookmarkedProblems]
+  );
+
   // Derive all unique topics from loaded problems
   const allTopics = useMemo(() => {
     const set = new Set<string>();
@@ -66,7 +83,7 @@ export default function ProblemsPage() {
     );
   };
 
-  const filtered = problems?.filter((p, index) => {
+  const filtered = (showBookmarks ? (bookmarkedProblems ?? []) : (problems ?? [])).filter((p, index) => {
     const passesDifficulty = difficultyFilter === "ALL" || p.difficulty === difficultyFilter;
     const passesNumber =
       !isNumberSearch ||
@@ -75,7 +92,7 @@ export default function ProblemsPage() {
       selectedTopics.length === 0 ||
       selectedTopics.some((t) => p.topics?.includes(t));
     return passesDifficulty && passesNumber && passesTopics;
-  }) ?? [];
+  });
 
   const counts = {
     ALL: problems?.length ?? 0,
@@ -148,15 +165,15 @@ export default function ProblemsPage() {
           )}
         </div>
 
-        {/* Difficulty Filter Tabs */}
+        {/* Difficulty Filter Tabs + Bookmarks */}
         <div className="flex gap-2 mb-4 flex-wrap">
           {(["ALL", "E", "M", "H"] as DifficultyFilter[]).map((d) => {
-            const isActive = difficultyFilter === d;
+            const isActive = difficultyFilter === d && !showBookmarks;
             const label = d === "ALL" ? "All" : DIFFICULTY_CONFIG[d].label;
             return (
               <button
                 key={d}
-                onClick={() => setDifficultyFilter(d)}
+                onClick={() => { setDifficultyFilter(d); setShowBookmarks(false); }}
                 className={`px-4 py-1.5 rounded-full text-sm font-medium transition-all border ${
                   isActive
                     ? d === "ALL" ? "bg-[#00d4aa] text-[#0f1419] border-[#00d4aa]"
@@ -170,6 +187,26 @@ export default function ProblemsPage() {
               </button>
             );
           })}
+
+          {/* Bookmarks tab (logged in only) */}
+          {session && (
+            <button
+              onClick={() => setShowBookmarks(!showBookmarks)}
+              className={`flex items-center gap-1.5 px-4 py-1.5 rounded-full text-sm font-medium transition-all border ml-auto ${
+                showBookmarks
+                  ? "bg-yellow-400/20 text-yellow-400 border-yellow-400/50"
+                  : "bg-transparent text-gray-400 border-[#2d3748] hover:border-yellow-400/40 hover:text-yellow-400"
+              }`}
+            >
+              <Bookmark className="w-3.5 h-3.5" />
+              Saved
+              {bookmarkSet.size > 0 && (
+                <span className={`ml-1 text-xs px-1.5 py-0.5 rounded-full font-bold ${
+                  showBookmarks ? "bg-yellow-400/20" : "bg-[#2d3748]"
+                }`}>{bookmarkSet.size}</span>
+              )}
+            </button>
+          )}
         </div>
 
         {/* Topic Filter */}
