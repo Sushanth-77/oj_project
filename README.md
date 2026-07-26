@@ -1,4 +1,4 @@
-﻿# 🚀 CodeMaster — Online Judge Platform
+# 🚀 CodeMaster — Online Judge Platform
 
 ![Next.js](https://img.shields.io/badge/Next.js-16.2-black?logo=next.js&logoColor=white)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5.x-3178C6?logo=typescript&logoColor=white)
@@ -38,13 +38,16 @@
 
 **CodeMaster** is a full-stack Online Judge platform where users can:
 
-- Browse and solve coding problems across multiple difficulty levels
-- Submit code in **5 programming languages** and get instant verdicts
-- View their personal submission history and track progress
-- Request an **AI-powered code review** on any accepted solution
-- Admins can create, edit, and manage problems, test cases, and users through a dedicated admin panel
+- Browse and solve coding problems across multiple difficulty levels with topic filtering and bookmark saving
+- Submit code in **Python 3, C++, and C** and get instant verdicts powered by the **Piston** execution engine
+- Track their progress with a **GitHub-style activity heatmap**, streak counters, and a **solve donut chart**
+- Earn **badges** and climb the **global leaderboard** with a difficulty-weighted score system
+- Get **AI-powered progressive hints** (3 levels) without spoiling the solution
+- Write private **per-problem notes** that auto-save, and share submissions via public links
+- Request an **AI code review** on any submission — powered by Groq's llama-3.1-8b-instant model
+- Admins manage problems with Markdown, per-language templates, test cases, and a rich analytics dashboard
 
-The platform is built entirely as a **single Next.js application** using the App Router paradigm — with server components, server actions, API routes, and a modern React frontend all co-located in one codebase.
+The platform is built entirely as a **single Next.js application** using the App Router paradigm — with server components, API routes, and a modern React frontend all co-located in one codebase.
 
 ---
 
@@ -54,25 +57,32 @@ The platform is built entirely as a **single Next.js application** using the App
 
 | Feature | Description |
 |---|---|
-| **Problem Browser** | Browse all problems with difficulty filters (Easy / Medium / Hard) and topic tags |
-| **In-Browser Code Editor** | Syntax-highlighted editor powered by **CodeMirror 6** with language-specific modes |
-| **Multi-language Support** | Submit in **Python, C++, C, Java, or JavaScript** |
-| **Instant Verdicts** | Get AC, WA, TLE, RE, CE, or IE verdicts with test case details |
-| **Submission History** | View all past submissions with language, verdict, timestamp, and problem link |
-| **AI Code Review** | Request an AI review on any submission — powered by Groq's llama-3.1-8b-instant model |
-| **Google OAuth Login** | Secure, one-click sign-in via Google — no passwords needed |
-| **Progress Tracking** | See which problems you've already solved |
+| **Problem Browser** | Browse problems with difficulty/topic filters and a ⭐ Bookmarks tab |
+| **In-Browser Code Editor** | Syntax-highlighted editor powered by **CodeMirror 6** with per-problem templates |
+| **Multi-language Support** | Submit in **Python 3, C++, or C** |
+| **Instant Verdicts** | AC, WA, TLE, RE, CE verdicts with CE/RE error detail panel |
+| **Submission History** | View all past submissions with clickable share links |
+| **Public Submission View** | Share any submission via a unique URL — code private by default |
+| **AI Code Review** | Request an AI review on any submission via Groq |
+| **AI Progressive Hints** | 3-level Socratic hints (Conceptual → Algorithmic → Near-solution) that never give away the answer |
+| **Bookmarks & Notes** | Bookmark problems and write private auto-saving markdown notes per problem |
+| **Global Leaderboard** | Difficulty-weighted leaderboard with top-3 podium, all-time and weekly tabs |
+| **User Profile** | Public profile with heatmap, donut chart, streak pills, badges grid, recent activity |
+| **Badges & Streaks** | Earn badges (First Solve, Streak, Hard Solver, Polyglot…) and track daily streaks |
+| **Problem Stats** | See acceptance rate and per-language submission count on every problem |
+| **Google OAuth Login** | Secure, one-click sign-in via Google |
+| **Progress Tracking** | Solved checkmarks on every problem row |
 
 ### 🛠️ For Admins
 
 | Feature | Description |
 |---|---|
-| **Admin Dashboard** | Overview of platform statistics and recent activity |
-| **Problem Management** | Create, edit, and delete problems with full Markdown support for problem statements |
-| **Test Case Editor** | Add/edit/delete visible and hidden test cases per problem |
-| **AI Topic Tagging** | Auto-generate topic tags for problems using Groq AI |
-| **Submission Viewer** | Browse all user submissions across the platform |
-| **User Management** | View all registered users and manage admin privileges |
+| **Admin Dashboard** | 6-stat overview with verdict/language bar charts, top solvers, most-attempted problems |
+| **Problem Management** | Create, edit, delete problems with full Markdown and per-language code templates |
+| **AI Topic Tagging** | Auto-generate topic tags on problem creation via Groq AI |
+| **Test Case Editor** | Upload via `.txt` file or manual entry with hidden/public split |
+| **Submission Viewer** | Browse all platform submissions with profile and problem links |
+| **User Management** | View all registered users and toggle admin privileges |
 
 ---
 
