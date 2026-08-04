@@ -1,14 +1,15 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { formatDistanceToNow, format, parseISO } from "date-fns";
 import {
-  Calendar, Flame, Zap, Trophy, Star, ArrowLeft, ExternalLink,
+  Calendar, Flame, Zap, Trophy, Star, ArrowLeft, ExternalLink, Users, UserPlus, UserMinus,
 } from "lucide-react";
 import { ProfileData } from "@/types";
 import { VerdictBadge } from "@/components/ui/VerdictBadge";
+import { useSession } from "next-auth/react";
 
 // ─── Submission Heatmap ───────────────────────────────────────────────────────
 function SubmissionHeatmap({ heatmap }: { heatmap: Record<string, number> }) {
@@ -149,6 +150,8 @@ function SolveDonut({ easy, medium, hard, total }: { easy: number; medium: numbe
 export default function ProfilePage() {
   const params = useParams();
   const userId = params.userId as string;
+  const { data: session } = useSession();
+  const queryClient = useQueryClient();
 
   const { data, isLoading, isError } = useQuery<ProfileData>({
     queryKey: ["profile", userId],
@@ -158,6 +161,16 @@ export default function ProfilePage() {
       return res.json();
     },
     staleTime: 60_000,
+  });
+
+  const followMutation = useMutation({
+    mutationFn: async () => {
+      const res = await fetch(`/api/users/${userId}/follow`, { method: "POST" });
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["profile", userId] });
+    },
   });
 
   if (isLoading) {
@@ -207,6 +220,37 @@ export default function ProfilePage() {
               {user.email && <p className="text-gray-400 text-sm mt-0.5">{user.email}</p>}
               <p className="text-gray-600 text-xs mt-1">Member since {joinDate}</p>
 
+              {/* XP / Level bar */}
+              {(user as any).xp !== undefined && (
+                <div className="mt-3 mb-2">
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-xs text-gray-400 flex items-center gap-1">
+                      <Zap className="w-3 h-3 text-[#00d4aa]" />
+                      Level {(user as any).level}
+                    </span>
+                    <span className="text-xs text-gray-600">{(user as any).xp} XP</span>
+                  </div>
+                  <div className="w-full h-1.5 bg-[#2d3748] rounded-full max-w-xs">
+                    <div
+                      className="h-1.5 bg-gradient-to-r from-[#00d4aa] to-[#00b894] rounded-full transition-all"
+                      style={{ width: `${Math.min(100, ((user as any).xp % 500) / 5)}%` }}
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* Followers / Following */}
+              {(user as any).followerCount !== undefined && (
+                <div className="flex items-center gap-4 mt-2 text-sm">
+                  <span className="text-gray-400">
+                    <span className="text-white font-semibold">{(user as any).followerCount}</span> followers
+                  </span>
+                  <span className="text-gray-400">
+                    <span className="text-white font-semibold">{(user as any).followingCount}</span> following
+                  </span>
+                </div>
+              )}
+
               {/* Streak pills */}
               <div className="flex flex-wrap gap-3 mt-3">
                 <div className="flex items-center gap-1.5 bg-orange-500/10 border border-orange-500/30 rounded-full px-3 py-1">
@@ -226,10 +270,29 @@ export default function ProfilePage() {
               </div>
             </div>
 
-            {/* Score box */}
-            <div className="text-right">
-              <div className="text-3xl font-bold text-[#00d4aa]">#{stats.score}</div>
-              <div className="text-xs text-gray-500">score</div>
+            {/* Follow button + Score */}
+            <div className="text-right flex flex-col items-end gap-3">
+              <div>
+                <div className="text-3xl font-bold text-[#00d4aa]">#{stats.score}</div>
+                <div className="text-xs text-gray-500">score</div>
+              </div>
+              {session && session.user?.id !== userId && (
+                <button
+                  onClick={() => followMutation.mutate()}
+                  disabled={followMutation.isPending}
+                  className={`flex items-center gap-2 px-4 py-1.5 rounded-full text-sm font-semibold transition-all border ${
+                    (user as any).isFollowing
+                      ? "bg-red-500/10 border-red-500/30 text-red-400 hover:bg-red-500/20"
+                      : "bg-[#00d4aa]/10 border-[#00d4aa]/30 text-[#00d4aa] hover:bg-[#00d4aa]/20"
+                  } disabled:opacity-50`}
+                >
+                  {(user as any).isFollowing ? (
+                    <><UserMinus className="w-3.5 h-3.5" /> Unfollow</>
+                  ) : (
+                    <><UserPlus className="w-3.5 h-3.5" /> Follow</>
+                  )}
+                </button>
+              )}
             </div>
           </div>
         </div>

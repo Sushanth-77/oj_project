@@ -17,7 +17,10 @@ export async function GET(_req: Request, context: RouteContext) {
         email: true,
         image: true,
         createdAt: true,
+        xp: true,
+        level: true,
         streak: true,
+        _count: { select: { followers: true, following: true } },
         userBadges: {
           include: { badge: true },
           orderBy: { awardedAt: "asc" },
@@ -88,6 +91,15 @@ export async function GET(_req: Request, context: RouteContext) {
     // Privacy: only show email if viewing own profile
     const isOwnProfile = session?.user?.id === userId;
 
+    // Check if current user follows this profile
+    let isFollowing = false;
+    if (session?.user?.id && session.user.id !== userId) {
+      const follow = await prisma.follow.findUnique({
+        where: { followerId_followingId: { followerId: session.user.id, followingId: userId } },
+      });
+      isFollowing = !!follow;
+    }
+
     return NextResponse.json({
       user: {
         id: user.id,
@@ -95,6 +107,11 @@ export async function GET(_req: Request, context: RouteContext) {
         email: isOwnProfile ? user.email : null,
         image: user.image,
         createdAt: user.createdAt,
+        xp: user.xp ?? 0,
+        level: user.level ?? 1,
+        followerCount: user._count?.followers ?? 0,
+        followingCount: user._count?.following ?? 0,
+        isFollowing,
       },
       stats: {
         totalSolved,
