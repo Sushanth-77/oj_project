@@ -1,4 +1,5 @@
 import { Header } from "@/components/layout/Header";
+import { AnnouncementBanner } from "@/components/layout/AnnouncementBanner";
 
 export default function JudgeLayout({
   children,
@@ -8,6 +9,7 @@ export default function JudgeLayout({
   return (
     <>
       <Header />
+      <AnnouncementBanner />
       <main className="flex-1">
         {children}
       </main>

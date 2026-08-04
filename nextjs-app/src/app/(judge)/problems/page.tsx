@@ -3,7 +3,7 @@
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { useState, useMemo } from "react";
-import { Search, ChevronRight, X, CheckCircle2, Tag, Bookmark } from "lucide-react";
+import { Search, ChevronRight, X, CheckCircle2, Tag, Bookmark, Star, ArrowUpDown } from "lucide-react";
 import { useSession } from "next-auth/react";
 import { Problem } from "@/types";
 
@@ -20,6 +20,7 @@ export default function ProblemsPage() {
   const [difficultyFilter, setDifficultyFilter] = useState<DifficultyFilter>("ALL");
   const [selectedTopics, setSelectedTopics] = useState<string[]>([]);
   const [showBookmarks, setShowBookmarks] = useState(false);
+  const [sortBy, setSortBy] = useState<"default" | "acceptance" | "attempts">("default");
   const { data: session } = useSession();
 
   const isNumberSearch = search.startsWith("#");
@@ -146,23 +147,35 @@ export default function ProblemsPage() {
         )}
 
         {/* Search Bar */}
-        <div className="relative mb-5">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-500" />
-          <input
-            type="text"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search by name, code, or #number..."
-            className="w-full bg-[#1a1f29] border border-[#2d3748] rounded-lg pl-10 pr-10 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-[#00d4aa] transition-colors"
-          />
-          {search && (
-            <button
-              onClick={() => setSearch("")}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white"
-            >
-              <X className="h-4 w-4" />
-            </button>
-          )}
+        <div className="flex gap-3 mb-5">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-500" />
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search by name, code, or #number..."
+              className="w-full bg-[#1a1f29] border border-[#2d3748] rounded-lg pl-10 pr-10 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-[#00d4aa] transition-colors"
+            />
+            {search && (
+              <button
+                onClick={() => setSearch("")}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            )}
+          </div>
+          {/* Sort Dropdown */}
+          <select
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value as any)}
+            className="bg-[#1a1f29] border border-[#2d3748] rounded-lg px-4 py-3 text-gray-300 text-sm focus:outline-none focus:border-[#00d4aa] cursor-pointer"
+          >
+            <option value="default">Sort: Default</option>
+            <option value="acceptance">Sort: Acceptance ↓</option>
+            <option value="attempts">Sort: Most Attempted</option>
+          </select>
         </div>
 
         {/* Difficulty Filter Tabs + Bookmarks */}
