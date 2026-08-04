@@ -27,7 +27,7 @@ export default function AdminAddProblem() {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [previewMode, setPreviewMode] = useState(false);
   const [generatedTags, setGeneratedTags] = useState<string[]>([]);
-  const [templates, setTemplates] = useState({ python: "", cpp: "", c: "" });
+  const [templates, setTemplates] = useState({ python: "", cpp: "", c: "", java: "", javascript: "" });
   const [showTemplates, setShowTemplates] = useState(false);
 
   const mutation = useMutation({
@@ -68,6 +68,8 @@ export default function AdminAddProblem() {
       if (templates.python.trim()) tmpl.python = templates.python;
       if (templates.cpp.trim()) tmpl.cpp = templates.cpp;
       if (templates.c.trim()) tmpl.c = templates.c;
+      if (templates.java.trim()) tmpl.java = templates.java;
+      if (templates.javascript.trim()) tmpl.javascript = templates.javascript;
       mutation.mutate({ ...formData, templates: Object.keys(tmpl).length > 0 ? tmpl : undefined } as any);
     } catch (error: any) {
       if (error instanceof z.ZodError) {
@@ -302,10 +304,10 @@ export default function AdminAddProblem() {
             {showTemplates && (
               <div className="p-4 space-y-4">
                 <p className="text-xs text-gray-500">Override the default boilerplate for this problem. Leave blank to use the global default.</p>
-                {(["python", "cpp", "c"] as const).map((lang) => (
+                {(["python", "cpp", "c", "java", "javascript"] as const).map((lang) => (
                   <div key={lang}>
                     <label className="block text-gray-400 text-xs font-semibold uppercase mb-1">
-                      {lang === "python" ? "Python 3" : lang === "cpp" ? "C++" : "C"}
+                      {lang === "python" ? "Python 3" : lang === "cpp" ? "C++" : lang === "java" ? "Java" : lang === "javascript" ? "JavaScript" : "C"}
                     </label>
                     <textarea
                       value={templates[lang]}

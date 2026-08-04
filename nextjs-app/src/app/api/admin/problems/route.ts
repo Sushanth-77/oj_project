@@ -104,6 +104,9 @@ export async function PUT(request: Request) {
       }
   
       const templates = json.templates && typeof json.templates === "object" ? json.templates : null;
+      const editorial = json.editorial !== undefined ? json.editorial : undefined;
+      const editorialCode = json.editorialCode !== undefined ? json.editorialCode : undefined;
+      const isDailyChallenge = json.isDailyChallenge !== undefined ? !!json.isDailyChallenge : undefined;
 
       const problem = await prisma.problem.update({
         where: { id: parseInt(id) },
@@ -113,6 +116,9 @@ export async function PUT(request: Request) {
           statement: result.data.statement,
           difficulty: result.data.difficulty,
           templates: templates ?? undefined,
+          ...(editorial !== undefined && { editorial }),
+          ...(editorialCode !== undefined && { editorialCode }),
+          ...(isDailyChallenge !== undefined && { isDailyChallenge }),
           testCases: {
               deleteMany: {},
               create: result.data.testCases,

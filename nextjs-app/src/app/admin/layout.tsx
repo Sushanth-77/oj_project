@@ -12,6 +12,9 @@ function getAdminTitle(pathname: string): string {
   if (pathname.startsWith("/admin/submissions")) return "All Submissions";
   if (pathname.startsWith("/admin/users")) return "Manage Users";
   if (pathname.startsWith("/admin/analytics")) return "Analytics";
+  if (pathname.startsWith("/admin/contests")) return "Contests";
+  if (pathname.startsWith("/admin/announcements")) return "Announcements";
+  if (pathname.startsWith("/admin/collections")) return "Collections";
   return "Dashboard Overview";
 }
 
@@ -46,6 +49,12 @@ export default function AdminLayout({
           </Link>
           <Link href="/admin/analytics" className={`${styles.navItem} ${pathname === '/admin/analytics' ? styles.navItemActive : ''}`}>
             <i>📈</i> Analytics
+          </Link>
+          <Link href="/admin/contests" className={`${styles.navItem} ${pathname.startsWith('/admin/contests') ? styles.navItemActive : ''}`}>
+            <i>🏆</i> Contests
+          </Link>
+          <Link href="/admin/announcements" className={`${styles.navItem} ${pathname.startsWith('/admin/announcements') ? styles.navItemActive : ''}`}>
+            <i>📢</i> Announcements
           </Link>
         </div>
       </nav>
