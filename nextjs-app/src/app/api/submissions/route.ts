@@ -95,6 +95,7 @@ export async function POST(request: Request) {
     
     let finalVerdict: Verdict = "AC";
     let finalErrorDetail: string | null = null;
+    let failInfo: { input: string; expected: string; got: string } | null = null;
 
     try {
       for (const testCase of testCases) {
@@ -104,6 +105,14 @@ export async function POST(request: Request) {
         if (evalResult.verdict !== "AC") {
           finalVerdict = evalResult.verdict;
           finalErrorDetail = evalResult.details?.error || null;
+          // Capture diff info for first failing non-hidden test case
+          if (evalResult.verdict === "WA" && !testCase.isHidden) {
+            failInfo = {
+              input: testCase.input,
+              expected: testCase.output,
+              got: runResult.stdout || "",
+            };
+          }
           break; // Stop on first failure
         }
       }
@@ -118,14 +127,39 @@ export async function POST(request: Request) {
       data: { verdict: finalVerdict },
     });
 
-    // Award badges & update streak on AC
+    // Award badges, XP & update streak on AC
     let newlyAwardedBadges: string[] = [];
+    let xpGained = 0;
+    let newLevel = 1;
+    let leveledUp = false;
+
     if (finalVerdict === "AC") {
       try {
         await seedBadges(); // Ensure badge definitions exist (idempotent)
-        newlyAwardedBadges = await processAcSubmission(session.user.id!);
+
+        // Fetch problem difficulty for XP calculation
+        const prob = await prisma.problem.findUnique({
+          where: { id: problemId },
+          select: { difficulty: true },
+        });
+
+        // Check if this is the user's first AC on this problem
+        const prevAcCount = await prisma.submission.count({
+          where: { userId: session.user.id!, problemId, verdict: "AC", id: { lt: submission.id } },
+        });
+        const isFirstAc = prevAcCount === 0;
+
+        const result = await processAcSubmission(
+          session.user.id!,
+          prob?.difficulty ?? "E",
+          isFirstAc
+        );
+        newlyAwardedBadges = result.awardedBadges;
+        xpGained = result.xpGained;
+        newLevel = result.newLevel;
+        leveledUp = result.leveledUp;
       } catch (badgeError) {
-        console.error("Badge processing error (non-fatal):", badgeError);
+        console.error("Badge/XP processing error (non-fatal):", badgeError);
       }
     }
 
@@ -133,7 +167,11 @@ export async function POST(request: Request) {
       id: updatedSubmission.id, 
       verdict: updatedSubmission.verdict,
       errorDetail: finalErrorDetail,
+      failInfo,
       newBadges: newlyAwardedBadges,
+      xpGained,
+      newLevel,
+      leveledUp,
     });
 
   } catch (error) {
@@ -144,3 +182,4 @@ export async function POST(request: Request) {
     );
   }
 }
+

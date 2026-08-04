@@ -21,5 +21,5 @@ export const createProblemSchema = problemSchema.extend({
 export const submissionSchema = z.object({
   problemId: z.number().int().positive(),
   codeText: z.string().min(10, "Code must be at least 10 characters"),
-  language: z.enum(["python", "cpp", "c"]),
+  language: z.enum(["python", "cpp", "c", "java", "javascript"]),
 });

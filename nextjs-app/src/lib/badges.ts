@@ -1,4 +1,4 @@
-// lib/badges.ts — Badge definitions and award logic
+// lib/badges.ts — Badge definitions, XP/Level system, and award logic
 
 import { prisma } from "@/lib/db";
 import { startOfDay } from "date-fns";
@@ -23,6 +23,49 @@ export const BADGE_DEFINITIONS = [
   { slug: "polyglot",       name: "Polyglot",         description: "Submit in 3 different languages", icon: "🌐" },
 ];
 
+// ─── XP System ─────────────────────────────────────────────────────────────────
+export const XP_PER_DIFFICULTY: Record<string, number> = {
+  E: 10,
+  M: 25,
+  H: 50,
+};
+
+// Level thresholds — XP needed to REACH that level
+export const LEVEL_THRESHOLDS = [
+  0,     // Level 1 — Novice
+  100,   // Level 2 — Apprentice
+  250,   // Level 3 — Coder
+  500,   // Level 4 — Developer
+  1000,  // Level 5 — Engineer
+  2000,  // Level 6 — Expert
+  4000,  // Level 7 — Master
+  8000,  // Level 8 — Grandmaster
+  15000, // Level 9 — Elite
+  25000, // Level 10 — Legendary
+];
+
+export const LEVEL_NAMES = [
+  "Novice", "Apprentice", "Coder", "Developer", "Engineer",
+  "Expert", "Master", "Grandmaster", "Elite", "Legendary",
+];
+
+export function xpToLevel(xp: number): number {
+  let level = 1;
+  for (let i = 0; i < LEVEL_THRESHOLDS.length; i++) {
+    if (xp >= LEVEL_THRESHOLDS[i]) {
+      level = i + 1;
+    } else {
+      break;
+    }
+  }
+  return level;
+}
+
+export function xpForNextLevel(currentLevel: number): number {
+  if (currentLevel >= LEVEL_THRESHOLDS.length) return Infinity;
+  return LEVEL_THRESHOLDS[currentLevel]; // threshold for level+1
+}
+
 /**
  * Seed all badge definitions into the DB (idempotent — uses upsert).
  */
@@ -46,6 +89,8 @@ async function awardBadge(userId: string, slug: string): Promise<boolean> {
 
   try {
     await prisma.userBadge.create({ data: { userId, badgeId: badge.id } });
+    // Create notification for badge award
+    await createNotification(userId, "badge", `🏅 Badge Unlocked!`, `You earned the "${badge.name}" badge!`, "/profile/" + userId);
     return true;
   } catch {
     // Unique constraint = already has it
@@ -54,10 +99,69 @@ async function awardBadge(userId: string, slug: string): Promise<boolean> {
 }
 
 /**
- * Run after a successful (AC) submission. Awards any newly earned badges and updates streaks.
+ * Award XP to a user and handle level-ups. Returns { xpGained, newLevel, leveledUp }.
  */
-export async function processAcSubmission(userId: string): Promise<string[]> {
-  const awarded: string[] = [];
+export async function awardXP(
+  userId: string,
+  difficulty: string
+): Promise<{ xpGained: number; newLevel: number; leveledUp: boolean }> {
+  const xpGained = XP_PER_DIFFICULTY[difficulty] ?? 10;
+
+  const user = await prisma.user.update({
+    where: { id: userId },
+    data: { xp: { increment: xpGained } },
+    select: { xp: true, level: true },
+  });
+
+  const newLevel = xpToLevel(user.xp);
+  const leveledUp = newLevel > user.level;
+
+  if (leveledUp) {
+    await prisma.user.update({
+      where: { id: userId },
+      data: { level: newLevel },
+    });
+    // Notify user of level up
+    await createNotification(
+      userId,
+      "xp_levelup",
+      `🎉 Level Up!`,
+      `You've reached Level ${newLevel} — ${LEVEL_NAMES[newLevel - 1]}!`,
+      "/profile/" + userId
+    );
+  }
+
+  return { xpGained, newLevel, leveledUp };
+}
+
+/**
+ * Create an in-app notification for a user.
+ */
+export async function createNotification(
+  userId: string,
+  type: string,
+  title: string,
+  message: string,
+  link?: string
+) {
+  try {
+    await prisma.notification.create({
+      data: { userId, type, title, message, link },
+    });
+  } catch (err) {
+    console.error("Failed to create notification (non-fatal):", err);
+  }
+}
+
+/**
+ * Run after a successful (AC) submission. Awards any newly earned badges, XP, and updates streaks.
+ */
+export async function processAcSubmission(
+  userId: string,
+  problemDifficulty: string = "E",
+  isFirstAcForProblem: boolean = true
+): Promise<{ awardedBadges: string[]; xpGained: number; newLevel: number; leveledUp: boolean }> {
+  const awardedBadges: string[] = [];
 
   // ── 1. Update streak ─────────────────────────────────────────────────────────
   const today = startOfDay(new Date());
@@ -92,9 +196,9 @@ export async function processAcSubmission(userId: string): Promise<string[]> {
     });
 
     // Award streak badges
-    if (newCurrent >= 3  && await awardBadge(userId, "streak_3"))  awarded.push("streak_3");
-    if (newCurrent >= 7  && await awardBadge(userId, "streak_7"))  awarded.push("streak_7");
-    if (newCurrent >= 30 && await awardBadge(userId, "streak_30")) awarded.push("streak_30");
+    if (newCurrent >= 3  && await awardBadge(userId, "streak_3"))  awardedBadges.push("streak_3");
+    if (newCurrent >= 7  && await awardBadge(userId, "streak_7"))  awardedBadges.push("streak_7");
+    if (newCurrent >= 30 && await awardBadge(userId, "streak_30")) awardedBadges.push("streak_30");
   }
 
   // ── 2. Count unique solved problems ────────────────────────────────────────
@@ -107,15 +211,15 @@ export async function processAcSubmission(userId: string): Promise<string[]> {
   const totalSolved = solvedProblems.length;
   const hardSolved = solvedProblems.filter((s) => s.problem.difficulty === "H").length;
 
-  if (totalSolved >= 1   && await awardBadge(userId, "first_solve"))  awarded.push("first_solve");
-  if (totalSolved >= 10  && await awardBadge(userId, "solve_10"))     awarded.push("solve_10");
-  if (totalSolved >= 25  && await awardBadge(userId, "solve_25"))     awarded.push("solve_25");
-  if (totalSolved >= 50  && await awardBadge(userId, "solve_50"))     awarded.push("solve_50");
-  if (totalSolved >= 100 && await awardBadge(userId, "solve_100"))    awarded.push("solve_100");
+  if (totalSolved >= 1   && await awardBadge(userId, "first_solve"))  awardedBadges.push("first_solve");
+  if (totalSolved >= 10  && await awardBadge(userId, "solve_10"))     awardedBadges.push("solve_10");
+  if (totalSolved >= 25  && await awardBadge(userId, "solve_25"))     awardedBadges.push("solve_25");
+  if (totalSolved >= 50  && await awardBadge(userId, "solve_50"))     awardedBadges.push("solve_50");
+  if (totalSolved >= 100 && await awardBadge(userId, "solve_100"))    awardedBadges.push("solve_100");
 
-  if (hardSolved >= 1    && await awardBadge(userId, "hard_1"))       awarded.push("hard_1");
-  if (hardSolved >= 5    && await awardBadge(userId, "hard_5"))       awarded.push("hard_5");
-  if (hardSolved >= 10   && await awardBadge(userId, "hard_10"))      awarded.push("hard_10");
+  if (hardSolved >= 1    && await awardBadge(userId, "hard_1"))       awardedBadges.push("hard_1");
+  if (hardSolved >= 5    && await awardBadge(userId, "hard_5"))       awardedBadges.push("hard_5");
+  if (hardSolved >= 10   && await awardBadge(userId, "hard_10"))      awardedBadges.push("hard_10");
 
   // ── 3. Polyglot badge ────────────────────────────────────────────────────────
   const languages = await prisma.submission.findMany({
@@ -123,7 +227,13 @@ export async function processAcSubmission(userId: string): Promise<string[]> {
     select: { language: true },
     distinct: ["language"],
   });
-  if (languages.length >= 3 && await awardBadge(userId, "polyglot")) awarded.push("polyglot");
+  if (languages.length >= 3 && await awardBadge(userId, "polyglot")) awardedBadges.push("polyglot");
 
-  return awarded;
+  // ── 4. Award XP (only for first AC on a problem) ─────────────────────────────
+  let xpResult = { xpGained: 0, newLevel: 1, leveledUp: false };
+  if (isFirstAcForProblem) {
+    xpResult = await awardXP(userId, problemDifficulty);
+  }
+
+  return { awardedBadges, ...xpResult };
 }

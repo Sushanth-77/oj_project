@@ -10,14 +10,16 @@ datasource db {
 }
 
 model User {
-  id            String       @id @default(cuid())
-  email         String       @unique
+  id            String         @id @default(cuid())
+  email         String         @unique
   name          String?
   image         String?
   emailVerified DateTime?
-  isAdmin       Boolean      @default(false)
-  createdAt     DateTime     @default(now())
+  isAdmin       Boolean        @default(false)
+  createdAt     DateTime       @default(now())
   lastLogin     DateTime?
+  xp            Int            @default(0)
+  level         Int            @default(1)
   submissions   Submission[]
   accounts      Account[]
   sessions      Session[]
@@ -25,23 +27,37 @@ model User {
   notes         ProblemNote[]
   userBadges    UserBadge[]
   streak        Streak?
+  notifications Notification[]
+  discussions   Discussion[]
+  discussionReplies DiscussionReply[]
+  discussionVotes   DiscussionVote[]
+  following     Follow[]       @relation("Follower")
+  followers     Follow[]       @relation("Following")
+  contestRegistrations ContestRegistration[]
 
   @@map("users")
 }
 
 model Problem {
-  id          Int          @id @default(autoincrement())
-  name        String
-  shortCode   String       @unique
-  statement   String
-  difficulty  String       // 'E', 'M', 'H'
-  topics      String[]     @default([])
-  templates   Json?        // { python: "...", cpp: "...", c: "..." } — admin custom starters
-  createdAt   DateTime     @default(now())
-  testCases   TestCase[]
-  submissions Submission[]
-  bookmarks   Bookmark[]
-  notes       ProblemNote[]
+  id                  Int          @id @default(autoincrement())
+  name                String
+  shortCode           String       @unique
+  statement           String
+  difficulty          String       // 'E', 'M', 'H'
+  topics              String[]     @default([])
+  templates           Json?        // { python: "...", cpp: "...", c: "...", java: "...", javascript: "..." }
+  editorial           String?      @db.Text
+  editorialCode       String?      @db.Text
+  isDailyChallenge    Boolean      @default(false)
+  dailyChallengeDate  DateTime?
+  createdAt           DateTime     @default(now())
+  testCases           TestCase[]
+  submissions         Submission[]
+  bookmarks           Bookmark[]
+  notes               ProblemNote[]
+  discussions         Discussion[]
+  collectionProblems  CollectionProblem[]
+  contestProblems     ContestProblem[]
 
   @@map("problems")
 }
@@ -63,7 +79,7 @@ model Submission {
   problemId Int
   userId    String
   codeText  String
-  language  String   @default("py") // 'py', 'cpp', 'c', 'java', 'js'
+  language  String   @default("py") // 'py', 'cpp', 'c', 'java', 'javascript'
   verdict   String   @default("PE") // AC, WA, TLE, RE, CE, PE, IE
   submitted DateTime @default(now())
   problem   Problem  @relation(fields: [problemId], references: [id])
@@ -134,6 +150,155 @@ model Streak {
   user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("streaks")
+}
+
+// ─── Notifications ───────────────────────────────────────────────────────────────
+model Notification {
+  id        Int      @id @default(autoincrement())
+  userId    String
+  type      String   // "badge", "xp_levelup", "daily", "announcement", "reply"
+  title     String
+  message   String
+  link      String?
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, read])
+  @@map("notifications")
+}
+
+// ─── Discussions ─────────────────────────────────────────────────────────────────
+model Discussion {
+  id        Int               @id @default(autoincrement())
+  problemId Int
+  userId    String
+  title     String
+  body      String            @db.Text
+  isPinned  Boolean           @default(false)
+  createdAt DateTime          @default(now())
+  updatedAt DateTime          @updatedAt
+  replies   DiscussionReply[]
+  votes     DiscussionVote[]
+  problem   Problem           @relation(fields: [problemId], references: [id], onDelete: Cascade)
+  user      User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([problemId])
+  @@map("discussions")
+}
+
+model DiscussionReply {
+  id           Int        @id @default(autoincrement())
+  discussionId Int
+  userId       String
+  body         String     @db.Text
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+  discussion   Discussion @relation(fields: [discussionId], references: [id], onDelete: Cascade)
+  user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("discussion_replies")
+}
+
+model DiscussionVote {
+  id           Int        @id @default(autoincrement())
+  discussionId Int
+  userId       String
+  value        Int        // +1 or -1
+  discussion   Discussion @relation(fields: [discussionId], references: [id], onDelete: Cascade)
+  user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([discussionId, userId])
+  @@map("discussion_votes")
+}
+
+// ─── Collections / Study Plans ────────────────────────────────────────────────────
+model Collection {
+  id          Int                 @id @default(autoincrement())
+  title       String
+  description String?             @db.Text
+  slug        String              @unique
+  isPublished Boolean             @default(false)
+  createdAt   DateTime            @default(now())
+  problems    CollectionProblem[]
+
+  @@map("collections")
+}
+
+model CollectionProblem {
+  id           Int        @id @default(autoincrement())
+  collectionId Int
+  problemId    Int
+  order        Int        @default(1)
+  collection   Collection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  problem      Problem    @relation(fields: [problemId], references: [id], onDelete: Cascade)
+
+  @@unique([collectionId, problemId])
+  @@map("collection_problems")
+}
+
+// ─── Contests ─────────────────────────────────────────────────────────────────────
+model Contest {
+  id            Int                   @id @default(autoincrement())
+  title         String
+  description   String                @db.Text
+  startsAt      DateTime
+  endsAt        DateTime
+  isPublished   Boolean               @default(false)
+  createdAt     DateTime              @default(now())
+  problems      ContestProblem[]
+  registrations ContestRegistration[]
+
+  @@map("contests")
+}
+
+model ContestProblem {
+  id         Int     @id @default(autoincrement())
+  contestId  Int
+  problemId  Int
+  order      Int     @default(1)
+  points     Int     @default(100)
+  contest    Contest @relation(fields: [contestId], references: [id], onDelete: Cascade)
+  problem    Problem @relation(fields: [problemId], references: [id], onDelete: Cascade)
+
+  @@unique([contestId, problemId])
+  @@map("contest_problems")
+}
+
+model ContestRegistration {
+  id        Int      @id @default(autoincrement())
+  contestId Int
+  userId    String
+  joinedAt  DateTime @default(now())
+  contest   Contest  @relation(fields: [contestId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([contestId, userId])
+  @@map("contest_registrations")
+}
+
+// ─── Social / Friends ─────────────────────────────────────────────────────────────
+model Follow {
+  id          Int      @id @default(autoincrement())
+  followerId  String
+  followingId String
+  createdAt   DateTime @default(now())
+  follower    User     @relation("Follower", fields: [followerId], references: [id], onDelete: Cascade)
+  following   User     @relation("Following", fields: [followingId], references: [id], onDelete: Cascade)
+
+  @@unique([followerId, followingId])
+  @@map("follows")
+}
+
+// ─── Announcements ────────────────────────────────────────────────────────────────
+model Announcement {
+  id        Int      @id @default(autoincrement())
+  message   String
+  link      String?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  @@map("announcements")
 }
 
 // Required by NextAuth Prisma Adapter
